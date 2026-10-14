@@ -1,0 +1,5 @@
+* text=auto
+*.cs text eol=lf
+*.xaml text eol=lf
+*.md text eol=lf
+Tools/readme.txt -text

@@ -1,0 +1,10 @@
+bin/
+obj/
+release/
+artifacts/
+.vs/
+*.user
+*.pdb
+*.personalized_headphone
+*.bin
+original.json
