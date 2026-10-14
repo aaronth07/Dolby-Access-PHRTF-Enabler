@@ -13,7 +13,7 @@ Requirements:
 - Dolby Atmos for Headphones installed and enabled on the selected playback device
 - A personalized headphone profile (`1.1.0` tested; other versions show a warning)
 
-To enable Atmos, open **Windows Settings → System → Sound**, select the playback device, and set **Spatial sound** to **Dolby Atmos for Headphones**. _Note: This will only work with an activated copy of Dolby Atmos for Headphones as Atmos must be unlocked and activated on the selected device to be able to replace the rendering data to replace the personalized profile._
+To enable Atmos, open **Windows Settings → System → Sound**, select the playback device, and set **Spatial sound** to **Dolby Atmos for Headphones**. _Note: This will only work with an activated copy of Dolby Atmos for Headphones as Atmos must be unlocked and activated on the selected device to be able to replace the rendering data to necessary for using the personalized profile._
 ## Usage
 
 1. Close Dolby Access.
