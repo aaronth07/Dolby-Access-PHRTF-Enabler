@@ -13,8 +13,7 @@ Requirements:
 - Dolby Atmos for Headphones installed and enabled on the selected playback device
 - A personalized headphone profile (`1.1.0` tested; other versions show a warning)
 
-To enable Atmos, open **Windows Settings → System → Sound**, select the playback device, and set **Spatial sound** to **Dolby Atmos for Headphones**. Complete any required activation in Dolby Access, then close Dolby Access before importing a profile.
-
+To enable Atmos, open **Windows Settings → System → Sound**, select the playback device, and set **Spatial sound** to **Dolby Atmos for Headphones**. _Note: This will only work with an activated copy of Dolby Atmos for Headphones as Atmos must be unlocked and activated on the selected device to be able to replace the rendering data to replace the personalized profile._
 ## Usage
 
 1. Close Dolby Access.
@@ -23,7 +22,9 @@ To enable Atmos, open **Windows Settings → System → Sound**, select the play
 4. Click **Verify Atmos**.
 5. Enable **Personalized profile**.
 
-Device selection is independent of the Windows default device. Profile validation checks file contents, metadata, coefficient layout, and checksum regardless of the file extension. **Verify Atmos** checks the selected spatial sound provider and Dolby profile storage.
+Device selection is independent of the Windows default device, but defaults to the default playback device. _Note: for Windows Spatial Sound to take effect it has to be enabled for the default sound device or it will not take effect._
+
+Profile verification checks file contents, metadata, coefficient layout, and checksum. You may load any . **Verify Atmos** checks the selected spatial sound provider and Dolby profile storage.
 
 Disabling **Personalized profile** restores the profile retained before the first import on that device. If a custom profile was already present, that profile becomes the restore point. Atmos remains enabled, with spatial processing briefly restarted during each switch.
 
@@ -31,7 +32,7 @@ Disabling **Personalized profile** restores the profile retained before the firs
 
 A transaction backup is created automatically before each switch. **Back up** saves an additional copy of the current state.
 
-Backups are stored in `%LOCALAPPDATA%\AtmosProfile\<device GUID>\`. The original restore point is preserved across subsequent imports and manual backups. Retain this folder when reinstalling the application to preserve that restore point.
+Backups are stored in `%LOCALAPPDATA%\AtmosProfile\<device GUID>\`. The original backup is preserved across subsequent imports and manual backups. 
 
 ### Room response
 
@@ -47,7 +48,7 @@ dotnet publish AtmosProfile.csproj -c Release -r win-x64 -p:Platform=x64 -o rele
 
 Run `release/DolbyAccessPhrtfEnabler/DolbyAccessPhrtfEnabler.exe`. The publish target includes the PRI and XBF resources required by WinUI.
 
-The application uses C# and native WinUI 3 controls. Profile parsing and endpoint operations run off the UI thread. Spatial-format switching uses the bundled SoundVolumeView executable, verified against a pinned hash before execution.
+The application uses C# and native WinUI 3 controls. Profile parsing and endpoint operations run off the UI thread. Spatial-format switching uses the bundled SoundVolumeView executable.
 
 ## Validation
 
@@ -74,7 +75,7 @@ The published application has passed launch testing. Frontend interaction testin
 
 ## Distribution
 
-Releases include the complete, unmodified freeware SoundVolumeView distribution and its license in `Tools/readme.txt`. Its terms permit free noncommercial redistribution. Microsoft runtime notices are included with the corresponding files. Dolby Access and personalized profiles must be obtained separately.
+Releases include the complete, unmodified freeware SoundVolumeView distribution and its license in `Tools/readme.txt`. Its terms permit free noncommercial redistribution. Microsoft runtime notices are included with the corresponding files. Dolby Access, Dolby Atmos for Headphones, and personalized profiles must be obtained separately and are not bundled.
 
 This project is independently developed. Dolby and Dolby Access are trademarks of their respective owner.
 
