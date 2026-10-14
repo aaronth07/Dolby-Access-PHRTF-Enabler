@@ -1,57 +1,80 @@
 # Dolby Access PHRTF Enabler
 
-I was able to get a personalized `.personalized_headphone` profile working with Dolby Atmos for Headphones on Windows. This application applies the profile through Dolby's native system-effects property, so Windows Spatial Sound can use it for object-based headphone rendering.
+Enables personalized `.personalized_headphone` profiles in Dolby Atmos for Headphones on Windows. Profiles are applied through Dolby’s native system-effects property and used by Windows Spatial Sound for object-based binaural rendering.
 
-The interface is deliberately simple: select a playback device, select your profile, verify Atmos, and switch personalization on or off. A backup is created automatically before each switch.
+Supports device selection, profile and renderer verification, one click personalization toggle, and backups.
 
-## Download and use
+## Installation
 
-Download the ZIP from [Releases](../../releases/latest), extract the complete folder, and run `DolbyAccessPhrtfEnabler.exe`. Keep the extracted files together. The release includes the .NET and Windows App SDK runtimes.
+Download the ZIP from [Releases](../../releases/latest), extract the complete folder, and run `DolbyAccessPhrtfEnabler.exe`. Keep the extracted files together. The release includes the required .NET and Windows App SDK runtimes.
 
-You need Windows x64, Dolby Atmos for Headphones installed and enabled on the selected device, and your own personalized headphone profile. Coefficient version `1.1.0` is supported.
+Requirements:
+- Windows x64
+- Dolby Atmos for Headphones installed and enabled on the selected playback device
+- A personalized headphone profile using coefficient version `1.1.0`
 
-To enable Atmos, open **Windows Settings → System → Sound**, select the output device, and choose **Dolby Atmos for Headphones** under **Spatial sound**. Complete any required setup or activation in Dolby Access, then close it before using the enabler.
+To enable Atmos, open **Windows Settings → System → Sound**, select the playback device, and set **Spatial sound** to **Dolby Atmos for Headphones**. Complete any required activation in Dolby Access, then close Dolby Access before importing a profile.
+
+## Usage
 
 1. Close Dolby Access.
-2. Select the playback device that you want to use. This does not change the Windows default device.
-3. Select your `.personalized_headphone` file. The picker also allows other file extensions; the application checks the contents, metadata, coefficient layout, and checksum.
-4. Click **Verify Atmos** to check the selected provider and Dolby profile storage.
-5. Switch **Personalized profile** on.
+2. Select the playback device.
+3. Select the `.personalized_headphone` file.
+4. Click **Verify Atmos**.
+5. Enable **Personalized profile**.
 
-**Off** restores the profile saved before the application's first import on that device. Atmos stays enabled. If the device already had a custom profile when that backup was created, Off returns to that profile. The application briefly restarts spatial processing when switching.
+Device selection is independent of the Windows default device. Profile validation checks file contents, metadata, coefficient layout, and checksum regardless of the file extension. **Verify Atmos** checks the selected spatial sound provider and Dolby profile storage.
 
-**Back up** saves an additional copy of the current state. The retained original and transaction backups are stored under `%LOCALAPPDATA%\AtmosProfile\<device GUID>`. Later imports and manual backups preserve the retained original. Keep that folder if you want to retain the original across application reinstalls.
+Disabling **Personalized profile** restores the profile retained before the first import on that device. If a custom profile was already present, that profile becomes the restore point. Atmos remains enabled, with spatial processing briefly restarted during each switch.
 
-The profile can also change the room response. In the tested setup, applying it produced a noticeably shorter response tail. The [technical report](report.md) explains what was found about the directional coefficients, room tuning, loading path, and reverb.
+### Backups
+
+A transaction backup is created automatically before each switch. **Back up** saves an additional copy of the current state.
+
+Backups are stored in `%LOCALAPPDATA%\AtmosProfile\<device GUID>\`. The original restore point is preserved across subsequent imports and manual backups. Retain this folder when reinstalling the application to preserve that restore point.
+
+### Room response
+
+Importing a profile may also affect room processing. The tested configuration produced a substantially shorter response tail, indicating that room response, reflections, and reverb may be somewhat or entirely removed by applying this profile. Further research is underway on restoring this behavior. See  [technical report](report.md) for findings on directional coefficients, room tuning, the loading path, and reverberation.
 
 ## Build
 
-Install .NET SDK 10 and the Windows SDK, then run from the repository folder:
+Install .NET SDK 10 and the Windows SDK, then run from the repository directory:
 
 ```powershell
 dotnet publish AtmosProfile.csproj -c Release -r win-x64 -p:Platform=x64 -o release/DolbyAccessPhrtfEnabler
 ```
 
-Run `release/DolbyAccessPhrtfEnabler/DolbyAccessPhrtfEnabler.exe`. The publish target includes the application's PRI and XBF resources required by WinUI.
+Run `release/DolbyAccessPhrtfEnabler/DolbyAccessPhrtfEnabler.exe`. The publish target includes the PRI and XBF resources required by WinUI.
 
-The application uses C# and native WinUI 3 controls. Profile parsing and endpoint operations run off the UI thread. Spatial-format switching uses the bundled SoundVolumeView helper; its executable is checked against a pinned hash before use.
+The application uses C# and native WinUI 3 controls. Profile parsing and endpoint operations run off the UI thread. Spatial-format switching uses the bundled SoundVolumeView executable, verified against a pinned hash before execution.
 
-## Testing
+## Validation
 
-Backend testing covered exact payload reproduction, extension-independent file identification, malformed metadata and coefficients, real device enumeration, backup readback, an actual Off/On cycle, and rollback after an intentionally injected post-write failure. The final tested device ended with its initial personalized profile and Atmos restored.
+Backend validation covered:
+- Exact payload reproduction and extension-independent profile identification
+- Rejection of malformed metadata and coefficients
+- Device enumeration and backup readback
+- Live personalization Off/On switching
+- Rollback following an injected post-write failure
 
-The test program accepts private fixtures supplied locally:
+The tested device’s initial personalized profile and Atmos state were restored at the end of testing.
+
+Run the test program with locally supplied fixtures:
 
 ```powershell
 dotnet run --project Tests/Tests.csproj -- <profile-file> <original-api-payload> <expected-personalized-api-payload>
 ```
 
-An optional endpoint ID and `--live` add device testing. Live testing requires an existing verified original backup, an initially personalized device with Atmos active, Dolby Access closed, and exclusive use of that audio device during the test. It switches Off, On, and deliberately exercises rollback. Private profiles and payload fixtures are excluded from this repository.
+An optional endpoint ID and `--live` enable device testing. Live tests require a verified original backup, an initially personalized device with Atmos active, Dolby Access closed, and exclusive use of the selected audio device. The sequence switches personalization Off and On, then tests rollback after an injected failure.
 
-The published app launches successfully. Frontend interaction testing remains with the user. The native import was tested on one Windows system; other device and driver combinations may use different Dolby property branches.
+Private profiles and payload fixtures are excluded from the repository.
+
+The published application has passed launch testing. Frontend interaction testing remains pending. Native profile import has been tested on one Windows system; other device and driver combinations may use different Dolby property branches.
 
 ## Distribution
 
-The source in this repository is dedicated to this application. The release contains the complete, unmodified freeware SoundVolumeView distribution, with its license in `Tools/readme.txt`. Its terms allow free noncommercial redistribution. Microsoft runtime notices remain with their distributed files. Dolby Access and personalized profiles are supplied separately by the user.
+Releases include the complete, unmodified freeware SoundVolumeView distribution and its license in `Tools/readme.txt`. Its terms permit free noncommercial redistribution. Microsoft runtime notices are included with the corresponding files. Dolby Access and personalized profiles must be obtained separately.
 
-This is an independent project. Dolby and Dolby Access are trademarks of their respective owner.
+This project is independently developed. Dolby and Dolby Access are trademarks of their respective owner.
+
