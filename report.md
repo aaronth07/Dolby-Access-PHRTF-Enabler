@@ -99,3 +99,9 @@ The digest helper uses MD5 over US-ASCII bytes and emits uppercase hexadecimal. 
 The successful implementation uses the native endpoint property instead of reconstructing that cached upload workflow. It preserves the application's settings hive and cache files. Reopening Dolby Access, changing devices, resetting the application, rebooting, or receiving a driver update may cause the provider to rewrite or reload state; use the verifier after those events. Persistence across the tested spatial-provider restart is established, while reboot and update persistence remain open.
 
 The published material contains source code and this technical summary. Personalized coefficients, capture metadata, account data, registry exports, endpoint identifiers, proprietary Dolby binaries, and private research recordings are excluded.
+
+## Default device and script operation
+
+The default selector follows the Windows multimedia playback endpoint at the start of each operation. Once a transaction starts, it retains that resolved endpoint through backup, writing, verification, and rollback. Named selections continue to target their explicit endpoint.
+
+The PowerShell script uses the same C# parser and property service, compiled in memory by PowerShell. Native MMDevice enumeration and WinRT spatial-state getters are shared with the application. The default script mode asks the user to change the spatial format in Windows settings and verifies each change. Automatic restart is optional and uses the bundled helper. Script and application backups are compatible.

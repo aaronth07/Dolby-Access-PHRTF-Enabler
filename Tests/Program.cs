@@ -42,6 +42,13 @@ Reject("Oversized version", n => n["personalized_hrtf"]!["virtualizer_parameters
 Reject("Missing coefficient version", n => n["personalized_hrtf"]!["virtualizer_parameters"]!.AsObject().Remove("rosella_coefficients_version"));
 Reject("Noninteger coefficient", n => n["personalized_hrtf"]!["virtualizer_parameters"]!["rosella_coefficients"]![10] = 1.5);
 foreach (var bytes in new[] { original[..^1], original.Concat(new byte[] { 0 }).ToArray(), Array.Empty<byte>() }) { bool rejected = false; try { profile.ApplyTo(bytes); } catch { rejected = true; } Assert(rejected, "Reject malformed endpoint framing " + bytes.Length); }
+var changed = JsonNode.Parse(File.ReadAllText(profilePath))!.AsObject();
+var array = changed["personalized_hrtf"]!["virtualizer_parameters"]!["rosella_coefficients"]!.AsArray();
+array[100] = array[100]!.GetValue<int>() ^ 1;
+int checksum = 0xa569; for (int i = 2; i < array.Count; i++) checksum ^= (ushort)array[i]!.GetValue<int>();
+array[1] = checksum; string changedPath = Path.Combine(temp, "different-valid-checksum.json"); File.WriteAllText(changedPath, changed.ToJsonString());
+Assert(ProfileFile.Load(changedPath).Coefficients[1] != profile.Coefficients[1], "A different profile checksum is accepted when correctly calculated");
+Assert(ProfileService.Resolve(ProfileService.DefaultDevice).Id == AudioPlatform.Default().Id, "Default selection resolves current multimedia endpoint");
 var devices = await ProfileService.Devices(); Assert(devices.Count > 0, "Playback device enumeration");
 if (endpointId != null)
 {
@@ -55,6 +62,10 @@ if (args.Contains("--live"))
     {
         ProfileService.Switch(selected, null, false); var off = ProfileService.Inspect(selected); Assert(off.Atmos && !off.Personalized, "Live personalization OFF with Atmos active");
         ProfileService.Switch(selected, profile, true); var on = ProfileService.Inspect(selected); Assert(on.Atmos && on.Personalized, "Live personalization ON with Atmos active");
+        var method = typeof(ProfileService).GetMethod("SetSpatial", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        Action<bool> manual = enabled => method.Invoke(null, new object[] { selected, enabled });
+        ProfileService.Switch(selected, null, false, manual); Assert(!ProfileService.Inspect(selected).Personalized, "Manual restart callback OFF path");
+        ProfileService.Switch(selected, profile, true, manual); Assert(ProfileService.Inspect(selected).Personalized, "Manual restart callback ON path");
         ProfileService.AfterWriteTest = () => throw new IOException("Intentional post-write failure");
         bool failed = false;
         try { ProfileService.Switch(selected, null, false); } catch (IOException e) when (e.Message == "Intentional post-write failure") { failed = true; }

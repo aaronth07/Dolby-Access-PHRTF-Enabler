@@ -83,13 +83,14 @@
   <ItemGroup>
     <Content Include="Tools\*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
     <Compile Remove="Tests\**\*.cs" />
+    <Compile Remove="release\**\*.cs" />
   </ItemGroup>
   <Target Name="IncludeUnpackagedXamlResources" AfterTargets="Publish">
     <Copy SourceFiles="$(TargetDir)$(AssemblyName).pri;$(TargetDir)App.xbf;$(TargetDir)MainWindow.xbf" DestinationFolder="$(PublishDir)" />
   </Target>
   <PropertyGroup>
     <AssemblyName>DolbyAccessPhrtfEnabler</AssemblyName>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
     <PathMap>$(MSBuildProjectDirectory)=/_/src</PathMap>

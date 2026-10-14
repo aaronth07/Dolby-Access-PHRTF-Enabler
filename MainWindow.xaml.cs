@@ -38,9 +38,9 @@ public sealed partial class MainWindow : Window
     async void Loaded(object sender, RoutedEventArgs e) => await Run(async () =>
     {
         var devices = await ProfileService.Devices();
+        devices.Insert(0, ProfileService.DefaultDevice);
         Devices.ItemsSource = devices;
-        var defaultId = Windows.Media.Devices.MediaDevice.GetDefaultAudioRenderId(Windows.Media.Devices.AudioDeviceRole.Default);
-        Devices.SelectedItem = devices.FirstOrDefault(d => d.WinRtId.Equals(defaultId, StringComparison.OrdinalIgnoreCase)) ?? devices.FirstOrDefault();
+        Devices.SelectedItem = ProfileService.DefaultDevice;
         await Refresh();
     });
     async Task Refresh()
@@ -50,7 +50,7 @@ public sealed partial class MainWindow : Window
         {
             Personalized.IsOn = false;
             if (Selected == null) { AtmosStatus.Text = "No playback device available."; return; }
-            var device = Selected;
+            var device = ProfileService.Resolve(Selected);
             try { status = await Task.Run(() => ProfileService.Inspect(device)); AtmosStatus.Text = status.Message; Personalized.IsOn = status.Personalized; }
             catch { AtmosStatus.Text = "No supported Dolby profile on this device."; throw; }
         }
@@ -73,13 +73,13 @@ public sealed partial class MainWindow : Window
     async void BackupClicked(object sender, RoutedEventArgs e) => await Run(async () =>
     {
         if (Selected == null) return;
-        var device = Selected; var folder = await Task.Run(() => ProfileService.Backup(device));
+        var device = ProfileService.Resolve(Selected); var folder = await Task.Run(() => ProfileService.Backup(device));
         await Refresh(); Notify("Backup saved: " + folder);
     });
     async void Toggled(object sender, RoutedEventArgs e)
     {
         if (updating || busy || Selected == null) return;
-        bool enabled = Personalized.IsOn; var device = Selected; var selectedProfile = profile;
+        bool enabled = Personalized.IsOn; var device = ProfileService.Resolve(Selected); var selectedProfile = profile;
         await Run(async () =>
         {
             try { _ = await Task.Run(() => ProfileService.Switch(device, selectedProfile, enabled)); Notify(enabled ? "Personalized profile on. Atmos verified." : "Saved profile restored. Atmos verified."); }

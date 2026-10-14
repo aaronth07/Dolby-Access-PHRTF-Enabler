@@ -1,11 +1,17 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Win32;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Windows.Devices.Enumeration;
-using Windows.Media.Audio;
+
+
 
 namespace AtmosProfile;
 
@@ -35,12 +41,10 @@ public static class ProfileService
     static string RegistryPath(AudioDevice device) => @"SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Render\" + EndpointGuid(device) + @"\FxProperties\{" + Context + @"}\User";
     static string StatePath(AudioDevice device) => Path.Combine(DataRoot, EndpointGuid(device), "original.json");
 
-    public static async Task<List<AudioDevice>> Devices()
-    {
-        var list = await DeviceInformation.FindAllAsync(DeviceClass.AudioRender);
-        return list.Select(d => (d, m: Regex.Match(d.Id, @"\{0\.0\.0\.[^}]+\}\.\{[0-9a-fA-F-]+\}")))
-            .Where(x => x.m.Success).Select(x => new AudioDevice(x.m.Value, x.d.Id, x.d.Name)).OrderBy(d => d.Name).ToList();
-    }
+    public static AudioDevice DefaultDevice { get; } = new("Default", "", "Default playback device");
+    public static AudioDevice Resolve(AudioDevice device) => device.Id == "Default" ? AudioPlatform.Default() : device;
+    public static Task<List<AudioDevice>> Devices() => Task.FromResult(AudioPlatform.Devices().OrderBy(d => d.Name).ToList());
+    public static string ToolRoot { get; set; } = AppContext.BaseDirectory;
 
     sealed class Store : IDisposable
     {
@@ -120,9 +124,10 @@ public static class ProfileService
     }
     public static ProfileStatus Inspect(AudioDevice device)
     {
-        var spatial = SpatialAudioDeviceConfiguration.GetForDeviceId(device.WinRtId);
-        bool atmos = spatial.ActiveSpatialAudioFormat.Equals(SpatialAudioFormatSubtype.DolbyAtmosForHeadphones, StringComparison.OrdinalIgnoreCase)
-            && spatial.DefaultSpatialAudioFormat.Equals(SpatialAudioFormatSubtype.DolbyAtmosForHeadphones, StringComparison.OrdinalIgnoreCase);
+        device = Resolve(device);
+        var spatial = AudioPlatform.Spatial(device);
+        bool atmos = spatial.ActiveSpatialAudioFormat.Equals(AudioPlatform.Dolby, StringComparison.OrdinalIgnoreCase)
+            && spatial.DefaultSpatialAudioFormat.Equals(AudioPlatform.Dolby, StringComparison.OrdinalIgnoreCase);
         using var store = new Store(device, false); var current = store.Read(); VerifyRegistry(device, current);
         var state = LoadState(device); string hash = Hash(current);
         bool personalized = (state != null && hash == state.AppliedHash && hash != state.OriginalHash);
@@ -131,6 +136,7 @@ public static class ProfileService
     }
     public static string Backup(AudioDevice device)
     {
+        device = Resolve(device);
         using var mutex = Acquire(); using var store = new Store(device, false); var current = store.Read(); VerifyRegistry(device, current);
         _ = EnsureOriginal(device, current); return SaveBackup(device, current);
     }
@@ -153,7 +159,7 @@ public static class ProfileService
     }
     static string VerifyTool()
     {
-        string tool = Path.Combine(AppContext.BaseDirectory, "Tools", "SoundVolumeView.exe");
+        string tool = Path.Combine(ToolRoot, "Tools", "SoundVolumeView.exe");
         if (Hash(File.ReadAllBytes(tool)) != "b5af5bd60f7a29af8cb4d8a566382b90f0fe07cac97228d218cb913f3382d647") throw new InvalidDataException("Spatial sound helper integrity check failed.");
         return tool;
     }
@@ -161,25 +167,31 @@ public static class ProfileService
     {
         string tool = VerifyTool();
         var start = new ProcessStartInfo(tool) { UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = Path.GetDirectoryName(tool)! };
-        start.ArgumentList.Add("/SetSpatial"); start.ArgumentList.Add(device.Id); start.ArgumentList.Add(enabled ? SpatialAudioFormatSubtype.DolbyAtmosForHeadphones : "");
+        start.ArgumentList.Add("/SetSpatial"); start.ArgumentList.Add(device.Id); start.ArgumentList.Add(enabled ? AudioPlatform.Dolby : "");
         using var process = Process.Start(start) ?? throw new IOException("Could not start spatial sound helper.");
         if (!process.WaitForExit(15000)) { process.Kill(); throw new TimeoutException("Spatial sound operation timed out."); }
         if (process.ExitCode != 0) throw new IOException("Spatial sound helper failed.");
+        VerifySpatial(device, enabled);
+    }
+    static void VerifySpatial(AudioDevice device, bool enabled)
+    {
         for (int i = 0; i < 40; i++)
         {
-            var s = SpatialAudioDeviceConfiguration.GetForDeviceId(device.WinRtId);
-            string expected = enabled ? SpatialAudioFormatSubtype.DolbyAtmosForHeadphones : "{00000000-0000-0000-0000-000000000000}";
+            var s = AudioPlatform.Spatial(device);
+            string expected = enabled ? AudioPlatform.Dolby : "{00000000-0000-0000-0000-000000000000}";
             if (s.ActiveSpatialAudioFormat.Equals(expected, StringComparison.OrdinalIgnoreCase) && s.DefaultSpatialAudioFormat.Equals(expected, StringComparison.OrdinalIgnoreCase)) return;
             Thread.Sleep(100);
         }
         throw new InvalidOperationException("Spatial sound readback failed.");
     }
-    public static string Switch(AudioDevice device, ProfileFile? profile, bool enabled)
+    public static string Switch(AudioDevice device, ProfileFile? profile, bool enabled, Action<bool>? manualRestart = null)
     {
+        device = Resolve(device);
         using var mutex = Acquire();
         if (Process.GetProcessesByName("DolbyAccess").Length != 0) throw new InvalidOperationException("Close Dolby Access before switching the profile.");
         var status = Inspect(device); if (!status.Atmos) throw new InvalidOperationException(status.Message);
-        _ = VerifyTool();
+        if (manualRestart == null) _ = VerifyTool();
+        void Restart(bool on) { if (manualRestart == null) SetSpatial(device, on); else { manualRestart(on); VerifySpatial(device, on); } }
         using var store = new Store(device, true); var before = store.Read(); var snapshot = Snapshot(device);
         var state = EnsureOriginal(device, before); byte[] original = Convert.FromBase64String(state.Original);
         string hash = Hash(before);
@@ -188,7 +200,7 @@ public static class ProfileService
         var backup = SaveBackup(device, before); bool attempted = false;
         try
         {
-            SetSpatial(device, false); attempted = true; store.Write(desired);
+            Restart(false); attempted = true; store.Write(desired);
 #if TESTING
             AfterWriteTest?.Invoke();
 #endif
@@ -196,7 +208,7 @@ public static class ProfileService
             VerifyRegistry(device, desired);
             var after = Snapshot(device);
             if (snapshot.Count != after.Count || snapshot.Any(p => p.Key != Property && (!after.TryGetValue(p.Key, out var v) || v != p.Value))) throw new InvalidOperationException("Another Dolby property changed.");
-            SetSpatial(device, true);
+            Restart(true);
             if (!store.Read().SequenceEqual(desired)) throw new InvalidOperationException("Profile did not survive renderer restart.");
             VerifyRegistry(device, desired);
             if (enabled) state.AppliedHash = Hash(desired);
@@ -214,7 +226,7 @@ public static class ProfileService
                     var restored = Snapshot(device);
                     if (restored.Count != snapshot.Count || snapshot.Any(p => !restored.TryGetValue(p.Key, out var v) || v != p.Value)) throw new IOException("Dolby context changed during rollback.");
                 }
-                SetSpatial(device, true);
+                Restart(true);
             }
             catch (Exception restore) { throw new AggregateException("Profile switch and restoration failed. Backup: " + backup, error, restore); }
             throw;

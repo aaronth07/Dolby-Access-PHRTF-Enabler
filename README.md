@@ -22,9 +22,9 @@ To enable Atmos, open **Windows Settings → System → Sound**, select the play
 4. Click **Verify Atmos**.
 5. Enable **Personalized profile**.
 
-Device selection is independent of the Windows default device, but defaults to the default playback device. _Note: for Windows Spatial Sound to take effect it has to be enabled for the default sound device or it will not take effect._
+**Default playback device** is the initial selection and follows the current Windows default at the start of each operation. A named selection targets that device directly. For playback applications that use the Windows default device, ensure Atmos is enabled on that device.
 
-Profile verification checks file contents, metadata, coefficient layout, and checksum. You may load any . **Verify Atmos** checks the selected spatial sound provider and Dolby profile storage.
+Profile verification checks file contents, metadata, coefficient layout, and checksum. Files with other extensions are accepted when their contents validate. **Verify Atmos** checks the selected spatial sound provider and Dolby profile storage.
 
 Disabling **Personalized profile** restores the profile retained before the first import on that device. If a custom profile was already present, that profile becomes the restore point. Atmos remains enabled, with spatial processing briefly restarted during each switch.
 
@@ -54,7 +54,7 @@ The application uses C# and native WinUI 3 controls. Profile parsing and endpoin
 
 Backend validation covered:
 - Exact payload reproduction and extension-independent profile identification
-- Rejection of malformed metadata and coefficients
+- Warnings for unfamiliar metadata and rejection of malformed coefficients
 - Device enumeration and backup readback
 - Live personalization Off/On switching
 - Rollback following an injected post-write failure
@@ -79,3 +79,20 @@ Releases include the complete, unmodified freeware SoundVolumeView distribution 
 
 This project is independently developed. Dolby and Dolby Access are trademarks of their respective owner.
 
+
+## PowerShell version
+
+Download the PowerShell source ZIP from Releases, or use the repository source. Use 64-bit PowerShell 7.4 or later. The script shares the application backend and compiles the included C# source in memory.
+
+```powershell
+pwsh -File scripts/Set-DolbyPersonalizedProfile.ps1 -Mode List
+pwsh -File scripts/Set-DolbyPersonalizedProfile.ps1 -Mode Verify
+pwsh -File scripts/Set-DolbyPersonalizedProfile.ps1 -Mode On -ProfilePath "my-profile.personalized_headphone"
+pwsh -File scripts/Set-DolbyPersonalizedProfile.ps1 -Mode Off
+```
+
+The default device is selected unless you supply `-DeviceId` from the List output. `-Mode Validate -ProfilePath <file>` checks a profile without accessing an endpoint, and `-Mode Backup` saves a backup.
+
+By default, On and Off prompt you to turn spatial sound Off and then re-enable Dolby Atmos for Headphones in Windows settings. Each change is verified before proceeding. This mode runs no downloaded executable. Add `-AutomaticRestart` to use the bundled SoundVolumeView helper for those steps. Both modes retain automatic backups and rollback.
+
+The coefficient checksum is recalculated from the selected profile and compared with that profile's stored checksum. Each valid profile can have its own checksum; it is not compared with one fixed reference profile.
