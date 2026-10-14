@@ -76,5 +76,50 @@ if (args.Contains("--live"))
     finally { if (before.Personalized && !ProfileService.Inspect(selected).Personalized) ProfileService.Switch(selected, profile, true); }
 }
 }
+Assert(!ProfileFile.HasPersonalization(original), "Original payload has no personalized coefficient block");
+Assert(ProfileFile.HasPersonalization(candidate), "Personalized coefficient presence detected independently of saved hash");
+Assert(ProfileService.Inspect(ProfileService.DefaultDevice) == ProfileService.Inspect(ProfileService.Resolve(ProfileService.DefaultDevice)), "Default and explicit endpoint report identical state");
+if (args.Contains("--recovery") && endpointId != null)
+{
+    var selected = devices.Single(d => d.Id == endpointId);
+    string realRoot = ProfileService.DataRoot;
+    string isolated = Path.Combine(temp, "recovery-" + Guid.NewGuid().ToString("N"));
+    string guid = Guid.Parse(selected.Id[(selected.Id.LastIndexOf('.') + 1)..]).ToString("B");
+    string realState = Path.Combine(realRoot, guid, "original.json");
+    var saved = File.ReadAllBytes(realState);
+    Directory.CreateDirectory(Path.Combine(isolated, guid));
+    string statePath = Path.Combine(isolated, guid, "original.json");
+    File.WriteAllBytes(statePath, saved);
+    ProfileService.TestDataRoot = isolated;
+    try {
+        var state = JsonSerializer.Deserialize<BackupRecord>(File.ReadAllText(statePath))!;
+        state.AppliedHash = "external-change"; File.WriteAllText(statePath, JsonSerializer.Serialize(state));
+        Assert(ProfileService.Inspect(selected).Personalized, "External personalization remains detected");
+        bool warned = false; try { ProfileService.Switch(selected, null, false); } catch (ProfileWarningException) { warned = true; }
+        Assert(warned, "External changes require explicit override");
+        ProfileService.Switch(selected, null, false, force: true);
+        Assert(!ProfileService.Inspect(selected).Personalized, "Forced restore after external change");
+        ProfileService.Switch(selected, profile, true);
+        File.WriteAllText(statePath, "broken JSON");
+        Assert(ProfileService.Inspect(selected).Personalized, "Invalid configuration does not block inspection");
+        warned = false; try { ProfileService.Switch(selected, profile, true); } catch (ProfileWarningException) { warned = true; }
+        Assert(warned, "Invalid configuration requires explicit override");
+        ProfileService.Switch(selected, profile, true, force: true);
+        Assert(File.ReadAllText(statePath).Contains("OriginalHash"), "Forced apply repairs invalid configuration");
+        File.WriteAllText(statePath, "broken JSON");
+        warned = false; try { ProfileService.Switch(selected, null, false); } catch (ProfileWarningException) { warned = true; }
+        Assert(warned, "Invalid state restore offers verified backup override");
+        ProfileService.Switch(selected, null, false, force: true);
+        Assert(ProfileService.Inspect(selected).Atmos, "Forced restore from verified transaction backup");
+        ProfileService.Switch(selected, profile, true, force: true);
+        string backup = ProfileService.Reset(selected);
+        Assert(File.Exists(Path.Combine(backup, "profile_api.bin")) && ProfileService.Inspect(selected).Atmos, "Reset restarts Atmos and saves fresh backup");
+        Assert(Directory.GetDirectories(Path.Combine(isolated, guid, "backups")).Length == 1, "Reset deletes old endpoint backups");
+    } finally {
+        ProfileService.TestDataRoot = null;
+        if (!ProfileService.Inspect(selected).Personalized) ProfileService.Switch(selected, profile, true, force: true);
+        Assert(File.ReadAllBytes(realState).SequenceEqual(saved), "Real application configuration preserved by isolated tests");
+    }
+}
 File.WriteAllText(Path.Combine(temp, "results.json"), JsonSerializer.Serialize(results, new JsonSerializerOptions { WriteIndented = true }));
 Console.WriteLine(JsonSerializer.Serialize(results));

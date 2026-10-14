@@ -25,6 +25,9 @@ public sealed class BackupRecord
     public string AppliedHash { get; set; } = "";
 }
 
+public class ProfileOperationException(string message) : InvalidOperationException(message);
+public sealed class ProfileWarningException(string message) : ProfileOperationException(message);
+
 public static class ProfileService
 {
 #if TESTING
@@ -32,7 +35,14 @@ public static class ProfileService
 #endif
     public const string Context = "45da5c30-2837-4ac4-b1e2-50acc3865974";
     public const string Property = "{1b4dab55-b1fb-4d8c-8317-f2d4a96efbb8},1";
-    public static string DataRoot => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AtmosProfile");
+    #if TESTING
+    internal static string? TestDataRoot;
+#endif
+    public static string DataRoot =>
+#if TESTING
+        TestDataRoot ??
+#endif
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AtmosProfile");
     public static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
     [DllImport("ole32.dll")] static extern int PropVariantClear(ref ProfileControlVariant value);
     static void Check(int hr) => Marshal.ThrowExceptionForHR(hr);
@@ -66,7 +76,7 @@ public static class ProfileService
                 Check(effects.OpenUserPropertyStore(writable ? 2u : 0u, out Value));
                 var alt = new ProfileControlKey("70b95986-9ee3-4b43-acb2-de7aeb1a9509", 1);
                 Check(Value.GetValue(ref alt, out var v));
-                try { if (v.type != 0) throw new InvalidOperationException("This device uses an unsupported Dolby profile branch."); }
+                try { if (v.type != 0) throw new ProfileOperationException("The Dolby profile cannot be verified on this device."); }
                 finally { PropVariantClear(ref v); }
             }
             catch { Dispose(); throw; }
@@ -74,7 +84,7 @@ public static class ProfileService
         public byte[] Read()
         {
             var key = Key; Check(Value!.GetValue(ref key, out var v));
-            try { if (v.type != 65 || v.length == 0 || v.length > 131072 || v.bytes == IntPtr.Zero) throw new InvalidOperationException("No supported Dolby profile property on this device."); var result = new byte[v.length]; Marshal.Copy(v.bytes, result, 0, result.Length); return result; }
+            try { if (v.type != 65 || v.length == 0 || v.length > 131072 || v.bytes == IntPtr.Zero) throw new ProfileOperationException("The Dolby profile cannot be verified on this device."); var result = new byte[v.length]; Marshal.Copy(v.bytes, result, 0, result.Length); return result; }
             finally { PropVariantClear(ref v); }
         }
         public void Write(byte[] data)
@@ -89,17 +99,17 @@ public static class ProfileService
     static byte[] RegistryBytes(AudioDevice device)
     {
         using var key = Registry.LocalMachine.OpenSubKey(RegistryPath(device));
-        return key?.GetValue(Property) as byte[] ?? throw new InvalidOperationException("Dolby profile storage is missing.");
+        return key?.GetValue(Property) as byte[] ?? throw new ProfileOperationException("The Dolby profile could not be found.");
     }
     static Dictionary<string, string> Snapshot(AudioDevice device)
     {
-        using var key = Registry.LocalMachine.OpenSubKey(RegistryPath(device)) ?? throw new InvalidOperationException("Dolby context missing.");
+        using var key = Registry.LocalMachine.OpenSubKey(RegistryPath(device)) ?? throw new ProfileOperationException("The Dolby profile could not be found.");
         return key.GetValueNames().ToDictionary(n => n, n => key.GetValueKind(n) + ":" + Hash(key.GetValue(n) is byte[] b ? b : System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(key.GetValue(n)))));
     }
     static void VerifyRegistry(AudioDevice device, byte[] expected)
     {
         var bytes = RegistryBytes(device);
-        if (bytes.Length != expected.Length + 8 || !bytes.AsSpan(0, 8).SequenceEqual(Convert.FromHexString("4100000001000000")) || !bytes.AsSpan(8).SequenceEqual(expected)) throw new InvalidOperationException("Persisted profile differs from API readback.");
+        if (bytes.Length != expected.Length + 8 || !bytes.AsSpan(0, 8).SequenceEqual(Convert.FromHexString("4100000001000000")) || !bytes.AsSpan(8).SequenceEqual(expected)) throw new ProfileOperationException("The saved profile could not be verified.");
     }
     static BackupRecord? LoadState(AudioDevice device)
     {
@@ -107,6 +117,27 @@ public static class ProfileService
         var state = JsonSerializer.Deserialize<BackupRecord>(File.ReadAllText(path)) ?? throw new InvalidDataException("Invalid backup.");
         if (state.Endpoint != device.Id || Hash(Convert.FromBase64String(state.Original)) != state.OriginalHash) throw new InvalidDataException("Backup identity or checksum mismatch.");
         return state;
+    }
+    static BackupRecord? LoadStateForRestore(AudioDevice device)
+    {
+        try { return LoadState(device); }
+        catch (Exception e) when (e is InvalidDataException or System.Text.Json.JsonException or FormatException) { return null; }
+    }
+    static BackupRecord? RecoverState(AudioDevice device)
+    {
+        var root = Path.Combine(DataRoot, EndpointGuid(device), "backups");
+        if (!Directory.Exists(root)) return null;
+        foreach (var folder in Directory.GetDirectories(root).OrderBy(p => p, StringComparer.Ordinal)) {
+            try {
+                if (File.ReadAllText(Path.Combine(folder, "endpoint.txt")) != device.Id) continue;
+                var api = File.ReadAllBytes(Path.Combine(folder, "profile_api.bin"));
+                var registry = File.ReadAllBytes(Path.Combine(folder, "profile_registry.bin"));
+                if (registry.Length != api.Length + 8 || !registry.AsSpan(0, 8).SequenceEqual(Convert.FromHexString("4100000001000000")) || !registry.AsSpan(8).SequenceEqual(api)) continue;
+                _ = ProfileFile.HasPersonalization(api);
+                return new() { Endpoint = device.Id, Original = Convert.ToBase64String(api), OriginalHash = Hash(api) };
+            } catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException) { }
+        }
+        return null;
     }
     static void SaveState(AudioDevice device, BackupRecord state)
     {
@@ -129,10 +160,12 @@ public static class ProfileService
         bool atmos = spatial.ActiveSpatialAudioFormat.Equals(AudioPlatform.Dolby, StringComparison.OrdinalIgnoreCase)
             && spatial.DefaultSpatialAudioFormat.Equals(AudioPlatform.Dolby, StringComparison.OrdinalIgnoreCase);
         using var store = new Store(device, false); var current = store.Read(); VerifyRegistry(device, current);
-        var state = LoadState(device); string hash = Hash(current);
-        bool personalized = (state != null && hash == state.AppliedHash && hash != state.OriginalHash);
+        BackupRecord? state = null; string? warning = null;
+        try { state = LoadState(device); } catch (Exception) { warning = "Saved configuration could not be verified."; }
+        string hash = Hash(current);
+        bool personalized = state != null && hash == state.OriginalHash ? false : ProfileFile.HasPersonalization(current);
         bool restore = state != null;
-        return new(atmos, personalized, restore, atmos ? "Dolby Atmos for Headphones active" : "Enable Dolby Atmos for Headphones for this device in Windows sound settings.");
+        return new(atmos, personalized, restore, warning ?? (atmos ? "Dolby Atmos for Headphones active" : "Enable Dolby Atmos for Headphones for this device in Windows sound settings."));
     }
     public static string Backup(AudioDevice device)
     {
@@ -140,11 +173,37 @@ public static class ProfileService
         using var mutex = Acquire(); using var store = new Store(device, false); var current = store.Read(); VerifyRegistry(device, current);
         _ = EnsureOriginal(device, current); return SaveBackup(device, current);
     }
+    public static string Reset(AudioDevice device)
+    {
+        device = Resolve(device);
+        using var mutex = Acquire();
+        _ = VerifyTool();
+        using (var store = new Store(device, false)) { var current = store.Read(); VerifyRegistry(device, current); }
+        // Restart first. Existing backups remain available if the restart fails.
+        try { SetSpatial(device, false); SetSpatial(device, true); }
+        catch { SetSpatial(device, true); throw; }
+        using var freshStore = new Store(device, false);
+        var fresh = freshStore.Read(); VerifyRegistry(device, fresh);
+        var folder = Path.GetDirectoryName(StatePath(device))!;
+        var previous = folder + ".reset." + Guid.NewGuid().ToString("N");
+        bool existed = Directory.Exists(folder);
+        if (existed) Directory.Move(folder, previous);
+        try {
+            EnsureOriginal(device, fresh);
+            var backup = SaveBackup(device, fresh);
+            if (existed) Directory.Delete(previous, true);
+            return backup;
+        } catch {
+            if (Directory.Exists(folder)) Directory.Delete(folder, true);
+            if (existed) Directory.Move(previous, folder);
+            throw;
+        }
+    }
     static MutexLease Acquire() => new();
     sealed class MutexLease : IDisposable
     {
-        readonly Mutex value = new(false, "Local\\DolbyPersonalizedProfileStereoConvolver");
-        public MutexLease() { bool acquired; try { acquired = value.WaitOne(0); } catch (AbandonedMutexException) { acquired = true; } if (!acquired) { value.Dispose(); throw new InvalidOperationException("Another profile operation is running."); } }
+        readonly Mutex value = new(false, "Local\\DolbyPersonalizedProfileOperation");
+        public MutexLease() { bool acquired; try { acquired = value.WaitOne(0); } catch (AbandonedMutexException) { acquired = true; } if (!acquired) { value.Dispose(); throw new ProfileOperationException("Another profile operation is running."); } }
         public void Dispose() { value.ReleaseMutex(); value.Dispose(); }
     }
     static string SaveBackup(AudioDevice device, byte[] current)
@@ -182,21 +241,34 @@ public static class ProfileService
             if (s.ActiveSpatialAudioFormat.Equals(expected, StringComparison.OrdinalIgnoreCase) && s.DefaultSpatialAudioFormat.Equals(expected, StringComparison.OrdinalIgnoreCase)) return;
             Thread.Sleep(100);
         }
-        throw new InvalidOperationException("Spatial sound readback failed.");
+        throw new ProfileOperationException("Atmos could not be verified.");
     }
-    public static string Switch(AudioDevice device, ProfileFile? profile, bool enabled, Action<bool>? manualRestart = null)
+    public static string Switch(AudioDevice device, ProfileFile? profile, bool enabled, Action<bool>? manualRestart = null, bool force = false)
     {
         device = Resolve(device);
         using var mutex = Acquire();
-        if (Process.GetProcessesByName("DolbyAccess").Length != 0) throw new InvalidOperationException("Close Dolby Access before switching the profile.");
-        var status = Inspect(device); if (!status.Atmos) throw new InvalidOperationException(status.Message);
+        if (!force && Process.GetProcessesByName("DolbyAccess").Length != 0) throw new ProfileWarningException("Close Dolby Access before switching the profile.");
+        var status = Inspect(device); if (!status.Atmos && !force) throw new ProfileWarningException(status.Message);
         if (manualRestart == null) _ = VerifyTool();
         void Restart(bool on) { if (manualRestart == null) SetSpatial(device, on); else { manualRestart(on); VerifySpatial(device, on); } }
         using var store = new Store(device, true); var before = store.Read(); var snapshot = Snapshot(device);
-        var state = EnsureOriginal(device, before); byte[] original = Convert.FromBase64String(state.Original);
+        if (!enabled && LoadStateForRestore(device) == null) {
+            if (!force) throw new ProfileWarningException("Saved configuration could not be verified. Allow to restore the earliest verified backup.");
+            var recovered = RecoverState(device) ?? throw new ProfileOperationException("No backup could be verified. Reset configuration.");
+            SaveState(device, recovered);
+        }
+        BackupRecord state;
+        try { state = EnsureOriginal(device, before); }
+        catch (Exception e) when (e is InvalidDataException or System.Text.Json.JsonException or FormatException) {
+            if (!force) throw new ProfileWarningException("Saved configuration could not be verified. Allow to save a new baseline.");
+            SaveBackup(device, before);
+            var oldPath = StatePath(device); File.Move(oldPath, oldPath + ".invalid." + Guid.NewGuid().ToString("N"));
+            state = EnsureOriginal(device, before);
+        }
+        byte[] original = Convert.FromBase64String(state.Original);
         string hash = Hash(before);
-        if (hash != state.OriginalHash && hash != state.AppliedHash) throw new InvalidOperationException("The profile changed outside this application. The saved original has been preserved.");
-        var desired = enabled ? (profile ?? throw new InvalidOperationException("Select a valid personalized headphone profile.")).ApplyTo(original) : original;
+        if (!force && hash != state.OriginalHash && hash != state.AppliedHash) throw new ProfileWarningException("The device profile changed outside this application.");
+        var desired = enabled ? (profile ?? throw new ProfileOperationException("Select a valid personalized headphone profile.")).ApplyTo(original) : original;
         var backup = SaveBackup(device, before); bool attempted = false;
         try
         {
@@ -204,12 +276,12 @@ public static class ProfileService
 #if TESTING
             AfterWriteTest?.Invoke();
 #endif
-            if (!store.Read().SequenceEqual(desired)) throw new InvalidOperationException("Profile API readback failed.");
+            if (!store.Read().SequenceEqual(desired)) throw new ProfileOperationException("The profile could not be verified.");
             VerifyRegistry(device, desired);
             var after = Snapshot(device);
-            if (snapshot.Count != after.Count || snapshot.Any(p => p.Key != Property && (!after.TryGetValue(p.Key, out var v) || v != p.Value))) throw new InvalidOperationException("Another Dolby property changed.");
+            if (snapshot.Count != after.Count || snapshot.Any(p => p.Key != Property && (!after.TryGetValue(p.Key, out var v) || v != p.Value))) throw new ProfileOperationException("Another Dolby property changed.");
             Restart(true);
-            if (!store.Read().SequenceEqual(desired)) throw new InvalidOperationException("Profile did not survive renderer restart.");
+            if (!store.Read().SequenceEqual(desired)) throw new ProfileOperationException("The profile could not be verified after restarting Atmos.");
             VerifyRegistry(device, desired);
             if (enabled) state.AppliedHash = Hash(desired);
             SaveState(device, state); return backup;

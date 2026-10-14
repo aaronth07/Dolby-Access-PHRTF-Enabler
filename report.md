@@ -105,3 +105,9 @@ The published material contains source code and this technical summary. Personal
 The default selector follows the Windows multimedia playback endpoint at the start of each operation. Once a transaction starts, it retains that resolved endpoint through backup, writing, verification, and rollback. Named selections continue to target their explicit endpoint.
 
 The PowerShell script uses the same C# parser and property service, compiled in memory by PowerShell. Native MMDevice enumeration and WinRT spatial-state getters are shared with the application. The default script mode asks the user to change the spatial format in Windows settings and verifies each change. Automatic restart is optional and uses the bundled helper. Script and application backups are compatible.
+
+## Configuration and profile changes
+
+The application identifies a personalized coefficient block directly in the device profile. Selecting Default playback device resolves the current Windows multimedia endpoint and uses the same inspection as selecting that endpoint explicitly.
+
+External profile changes prompt for an explicit overwrite or restore. Invalid saved configuration can be replaced after confirmation. If configuration is unreadable during restore, the application offers the earliest transaction backup whose endpoint and API/registry copies agree. Reset restarts Atmos, deletes the selected device's old app state and backups, and saves its current profile as the new Off baseline.

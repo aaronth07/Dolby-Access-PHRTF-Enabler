@@ -99,10 +99,18 @@ The coefficient checksum is recalculated from the selected profile and compared 
 
 ### Build the portable EXE
 
-The launcher is compiled with .NET Native AOT. Install the .NET 10 SDK and MSVC C++ build tools. Download the v1.0.2 Windows ZIP into `release`, then run:
+The launcher is compiled with .NET Native AOT. Install the .NET 10 SDK and MSVC C++ build tools. Download the v1.0.3 Windows ZIP into `release`, then run:
 
 ```powershell
 pwsh -File PortableLauncher/build-portable.ps1
 ```
 
 The build script creates the file-integrity manifest and embeds the ZIP. The output is `release/portable/DolbyAccessPhrtfEnabler-Portable.exe`. Cached files are checked before launch; a damaged cache is replaced by a fresh extraction. Backups remain in their existing directories.
+
+## Configuration changes
+
+Paste a profile path into the file field or browse for a `.personalized_headphone` file. All files remain available in the file picker.
+
+If the endpoint profile changed outside the application, a warning offers **Allow anyways** to apply the selected profile or restore the saved original. The operation still creates a fresh backup and verifies the write and renderer restart.
+
+**Reset configuration** deletes the selected device's saved configuration and backups, restarts Atmos, and creates a fresh backup of its current profile. That current profile becomes the new Off baseline. The warning requires confirmation before deletion.

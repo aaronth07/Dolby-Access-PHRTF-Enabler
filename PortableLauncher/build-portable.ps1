@@ -1,7 +1,7 @@
-param([string]$PayloadZip = (Join-Path $PSScriptRoot '../release/Dolby-Access-PHRTF-Enabler-v1.0.2-win-x64.zip'), [switch]$UseEnvironmentToolchain)
+param([string]$PayloadZip = (Join-Path $PSScriptRoot '../release/Dolby-Access-PHRTF-Enabler-v1.0.3-win-x64.zip'), [switch]$UseEnvironmentToolchain)
 $ErrorActionPreference = 'Stop'
 if (-not (Test-Path -LiteralPath $PayloadZip)) {
-    throw 'Download the v1.0.2 Windows ZIP into release first, or supply -PayloadZip.'
+    throw 'Download the v1.0.3 Windows ZIP into release first, or supply -PayloadZip.'
 }
 Add-Type -AssemblyName System.IO.Compression
 $archive = [IO.Compression.ZipFile]::OpenRead((Resolve-Path -LiteralPath $PayloadZip).Path)

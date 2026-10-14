@@ -21,8 +21,8 @@ public sealed record ProfileFile(string Name, string Version, string Room, int[]
         if (!hasMetadata) warnings.Add("Capture metadata is missing or unfamiliar.");
         var parameters = root.GetProperty("virtualizer_parameters");
         var version = parameters.GetProperty("rosella_coefficients_version").GetString();
-        if (string.IsNullOrWhiteSpace(version) || version.Length > 20 || version.Any(c => c > 127)) throw new InvalidDataException("Coefficient version must contain 1–20 ASCII bytes.");
-        if (version != "1.1.0") warnings.Add($"Coefficient version {version} has not been tested; its structural checks passed.");
+        if (string.IsNullOrWhiteSpace(version) || version.Length > 20 || version.Any(c => c > 127)) throw new InvalidDataException("Coefficient version must contain 1-20 ASCII bytes.");
+        if (version != "1.1.0") warnings.Add($"Coefficient version {version} has not been tested.");
         var values = parameters.GetProperty("rosella_coefficients").EnumerateArray().Select(v => v.GetInt32()).ToArray();
         if (values.Length < 14 || values.Length > 32768) throw new InvalidDataException("Invalid coefficient count.");
         var w = values.Select(v => (int)(ushort)v).ToArray();
@@ -39,6 +39,16 @@ public sealed record ProfileFile(string Name, string Version, string Room, int[]
         if (string.IsNullOrWhiteSpace(room)) warnings.Add("Room metadata is missing or unfamiliar.");
         if (hasMetadata && string.IsNullOrWhiteSpace(name)) warnings.Add("Profile name is missing or unfamiliar.");
         return new(name ?? Path.GetFileName(path), version, room ?? "Unspecified room", values) { Warning = warnings.Count == 0 ? null : string.Join(" ", warnings) };
+    }
+
+    public static bool HasPersonalization(byte[] payload)
+    {
+        using var reader = new BinaryReader(new MemoryStream(payload));
+        byte Flag() { byte v = reader.ReadByte(); if (v > 1) throw new InvalidDataException("Invalid initialization flag."); return v; }
+        for (int i = 0; i < 2; i++) if (Flag() != 0) _ = Flag();
+        if (Flag() != 0) _ = reader.ReadUInt32();
+        if (Flag() != 0) { uint count = reader.ReadUInt32(); if (count > 32768 || reader.ReadBytes((int)count * 4).Length != count * 4) throw new InvalidDataException("Invalid tuning size."); }
+        return Flag() != 0;
     }
 
     public byte[] ApplyTo(byte[] original)
