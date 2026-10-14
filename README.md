@@ -6,7 +6,7 @@ Supports device selection, profile and renderer verification, one click personal
 
 ## Installation
 
-Download the ZIP from [Releases](../../releases/latest), extract the complete folder, and run `DolbyAccessPhrtfEnabler.exe`. Keep the extracted files together. The release includes the required .NET and Windows App SDK runtimes.
+Download `DolbyAccessPhrtfEnabler-Portable.exe` from [Releases](../../releases/latest) and run it. It extracts and verifies the bundled application automatically under `%LOCALAPPDATA%\AtmosProfile\cache`, alongside the backup directories. The launcher includes the application and its required runtimes. The folder ZIP remains available for manual extraction.
 
 Requirements:
 - Windows x64
@@ -96,3 +96,13 @@ The default device is selected unless you supply `-DeviceId` from the List outpu
 By default, On and Off prompt you to turn spatial sound Off and then re-enable Dolby Atmos for Headphones in Windows settings. Each change is verified before proceeding. This mode runs no downloaded executable. Add `-AutomaticRestart` to use the bundled SoundVolumeView helper for those steps. Both modes retain automatic backups and rollback.
 
 The coefficient checksum is recalculated from the selected profile and compared with that profile's stored checksum. Each valid profile can have its own checksum; it is not compared with one fixed reference profile.
+
+### Build the portable EXE
+
+The launcher is compiled with .NET Native AOT. Install the .NET 10 SDK and MSVC C++ build tools. Download the v1.0.2 Windows ZIP into `release`, then run:
+
+```powershell
+pwsh -File PortableLauncher/build-portable.ps1
+```
+
+The build script creates the file-integrity manifest and embeds the ZIP. The output is `release/portable/DolbyAccessPhrtfEnabler-Portable.exe`. Cached files are checked before launch; a damaged cache is replaced by a fresh extraction. Backups remain in their existing directories.
