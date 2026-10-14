@@ -1,4 +1,4 @@
-param([string]$PayloadZip = (Join-Path $PSScriptRoot '../release/Dolby-Access-PHRTF-Enabler-v1.0.2-win-x64.zip'))
+param([string]$PayloadZip = (Join-Path $PSScriptRoot '../release/Dolby-Access-PHRTF-Enabler-v1.0.2-win-x64.zip'), [switch]$UseEnvironmentToolchain)
 $ErrorActionPreference = 'Stop'
 if (-not (Test-Path -LiteralPath $PayloadZip)) {
     throw 'Download the v1.0.2 Windows ZIP into release first, or supply -PayloadZip.'
@@ -16,5 +16,7 @@ try {
     }
     [IO.File]::WriteAllText((Join-Path $PSScriptRoot 'payload-manifest.txt'),($lines -join "`n")+"`n",[Text.UTF8Encoding]::new($false))
 } finally { $archive.Dispose() }
-dotnet publish (Join-Path $PSScriptRoot 'PortableLauncher.csproj') -c Release -o (Join-Path $PSScriptRoot '../release/portable') "-p:PayloadZip=$((Resolve-Path -LiteralPath $PayloadZip).Path)"
+$arguments = @('publish',(Join-Path $PSScriptRoot 'PortableLauncher.csproj'),'-c','Release','-o',(Join-Path $PSScriptRoot '../release/portable'),"-p:PayloadZip=$((Resolve-Path -LiteralPath $PayloadZip).Path)")
+if ($UseEnvironmentToolchain) { $arguments += '-p:IlcUseEnvironmentalTools=true' }
+dotnet @arguments
 if ($LASTEXITCODE -ne 0) { throw 'Portable launcher publish failed.' }
