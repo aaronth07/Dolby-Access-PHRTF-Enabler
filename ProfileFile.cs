@@ -5,16 +5,20 @@ namespace AtmosProfile;
 
 public sealed record ProfileFile(string Name, string Version, string Room, int[] Coefficients)
 {
+    public string? Warning { get; init; }
     public static ProfileFile Load(string path)
     {
         if (new FileInfo(path).Length > 4_000_000) throw new InvalidDataException("Profile exceeds the supported file size.");
         var text = File.ReadAllText(path, Encoding.UTF8);
         using var doc = JsonDocument.Parse(text);
         var root = doc.RootElement.GetProperty("personalized_hrtf");
-        var metadata = root.GetProperty("phrtf_capture_metadata");
+        bool hasMetadata = root.TryGetProperty("phrtf_capture_metadata", out var metadata) && metadata.ValueKind == JsonValueKind.Object;
+        var warnings = new List<string>();
+        if (!hasMetadata) warnings.Add("Capture metadata is missing or unfamiliar.");
         var parameters = root.GetProperty("virtualizer_parameters");
         var version = parameters.GetProperty("rosella_coefficients_version").GetString();
-        if (version != "1.1.0") throw new InvalidDataException("Only Dolby coefficient version 1.1.0 is supported.");
+        if (string.IsNullOrWhiteSpace(version) || version.Length > 20 || version.Any(c => c > 127)) throw new InvalidDataException("Coefficient version must contain 1–20 ASCII bytes.");
+        if (version != "1.1.0") warnings.Add($"Coefficient version {version} has not been tested; its structural checks passed.");
         var values = parameters.GetProperty("rosella_coefficients").EnumerateArray().Select(v => v.GetInt32()).ToArray();
         if (values.Length < 14 || values.Length > 32768) throw new InvalidDataException("Invalid coefficient count.");
         var w = values.Select(v => (int)(ushort)v).ToArray();
@@ -26,10 +30,11 @@ public sealed record ProfileFile(string Name, string Version, string Room, int[]
         if (checksum != w[1]) throw new InvalidDataException("Coefficient checksum is invalid.");
         long memory = w[7] * 708L + w[6] * 8L + 0x2525 + w[12] * (2L * 0x280 + 0x120) + 0x39f + (w[10] + w[11]) * 4L;
         if (memory > 0x21380) throw new InvalidDataException("Profile exceeds the native decoder's memory bound.");
-        var room = parameters.GetProperty("room_model").GetString();
-        if (string.IsNullOrWhiteSpace(room)) throw new InvalidDataException("Room metadata is missing.");
-        var name = metadata.GetProperty("name").GetString();
-        return new(name ?? Path.GetFileName(path), version, room, values);
+        string? room = parameters.TryGetProperty("room_model", out var r) && r.ValueKind == JsonValueKind.String ? r.GetString() : null;
+        string? name = hasMetadata && metadata.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String ? n.GetString() : null;
+        if (string.IsNullOrWhiteSpace(room)) warnings.Add("Room metadata is missing or unfamiliar.");
+        if (hasMetadata && string.IsNullOrWhiteSpace(name)) warnings.Add("Profile name is missing or unfamiliar.");
+        return new(name ?? Path.GetFileName(path), version, room ?? "Unspecified room", values) { Warning = warnings.Count == 0 ? null : string.Join(" ", warnings) };
     }
 
     public byte[] ApplyTo(byte[] original)

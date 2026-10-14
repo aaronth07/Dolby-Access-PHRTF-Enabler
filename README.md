@@ -11,7 +11,7 @@ Download the ZIP from [Releases](../../releases/latest), extract the complete fo
 Requirements:
 - Windows x64
 - Dolby Atmos for Headphones installed and enabled on the selected playback device
-- A personalized headphone profile using coefficient version `1.1.0`
+- A personalized headphone profile (`1.1.0` tested; other versions show a warning)
 
 To enable Atmos, open **Windows Settings → System → Sound**, select the playback device, and set **Spatial sound** to **Dolby Atmos for Headphones**. Complete any required activation in Dolby Access, then close Dolby Access before importing a profile.
 

@@ -21,7 +21,7 @@ The metadata describes the capture, creation date, name, UUID, and software vers
 
 The tested profile used coefficient version `1.1.0` and contained 15,691 integer entries. Its compact container had room and directional/PCA tables, plus an extended trailer. The magic value was `0x7072`. A low-word XOR checksum used seed `0xA569`; the extended trailer was included for this profile. Checking only the shorter core would reject this particular valid file.
 
-The application checks the metadata branch, supported version, integer types, table framing, expected length, checksum, and native memory bound. The inspected initialization reader bounded coefficient arrays at 32,768 integers and version text at 20 bytes. The application also bounds input file size. A filename extension is only a picker filter; it is the contents that determine acceptance.
+The application checks the metadata branch, version encoding and length, integer types, table framing, expected length, checksum, and native memory bound. The inspected initialization reader bounded coefficient arrays at 32,768 integers and version text at 20 bytes. The application also bounds input file size. A filename extension is only a picker filter; it is the contents that determine acceptance.
 
 ## Where Dolby stores and loads the tuning
 
@@ -72,7 +72,7 @@ The switch then briefly disables spatial processing on that endpoint, commits th
 
 The Atmos verifier checks the selected and active spatial subtype, the normal effects property, its persisted bytes, and the application's known applied-profile identity. That is an operational check; audible suitability still depends on the profile and listener. On another driver, a different context or property branch may prevent this application from using the same route.
 
-Backend tests reproduced the reviewed payload byte for byte and rejected damaged framing, missing metadata, unsupported versions, bad checksums, and noninteger coefficients. Live testing completed an Off/On cycle with Atmos active, then deliberately failed after a property write. Rollback restored the previous personalized payload and Atmos. An inactive or unsupported endpoint was rejected before mutation. The original/native comparisons were restored exactly in the earlier bounded playback tests.
+Backend tests reproduced the reviewed payload byte for byte and rejected damaged framing, invalid version encoding/length, bad checksums, and noninteger coefficients. Live testing completed an Off/On cycle with Atmos active, then deliberately failed after a property write. Rollback restored the previous personalized payload and Atmos. An inactive or unsupported endpoint was rejected before mutation. The original/native comparisons were restored exactly in the earlier bounded playback tests.
 
 ## Why the room response changed
 

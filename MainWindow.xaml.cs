@@ -67,7 +67,8 @@ public sealed partial class MainWindow : Window
         profile = null; Metadata.Visibility = Visibility.Collapsed; ProfilePath.Text = file.Path;
         profile = await Task.Run(() => ProfileFile.Load(file.Path));
         Metadata.Text = $"{profile.Name} · {profile.Version} · {profile.Room}"; Metadata.Visibility = Visibility.Visible;
-        Notify("Profile metadata and coefficient checksum verified.");
+        if (profile.Warning != null) { Notify(profile.Warning); Message.Severity = InfoBarSeverity.Warning; }
+        else Notify("Profile metadata and coefficient checksum verified.");
     });
     async void BackupClicked(object sender, RoutedEventArgs e) => await Run(async () =>
     {

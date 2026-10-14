@@ -26,11 +26,20 @@ void Reject(string name, Action<JsonObject> edit)
     var node = JsonNode.Parse(File.ReadAllText(profilePath))!.AsObject(); edit(node); string path = Path.Combine(temp, name + ".json"); File.WriteAllText(path, node.ToJsonString());
     bool rejected = false; try { _ = ProfileFile.Load(path); } catch { rejected = true; } Assert(rejected, name);
 }
+void Warn(string name, Action<JsonObject> edit)
+{
+    var node = JsonNode.Parse(File.ReadAllText(profilePath))!.AsObject(); edit(node); string path = Path.Combine(temp, name + ".json"); File.WriteAllText(path, node.ToJsonString());
+    var loaded = ProfileFile.Load(path); Assert(loaded.Warning != null && loaded.Coefficients.SequenceEqual(profile.Coefficients), name);
+    Assert(loaded.ApplyTo(original).Length > original.Length, name + " serializes successfully");
+}
 Reject("Bad checksum", n => n["personalized_hrtf"]!["virtualizer_parameters"]!["rosella_coefficients"]![1] = 0);
 Reject("Bad magic", n => n["personalized_hrtf"]!["virtualizer_parameters"]!["rosella_coefficients"]![0] = 0);
-Reject("Wrong version", n => n["personalized_hrtf"]!["virtualizer_parameters"]!["rosella_coefficients_version"] = "9.0.0");
+Warn("Unfamiliar version", n => n["personalized_hrtf"]!["virtualizer_parameters"]!["rosella_coefficients_version"] = "9.0.0");
 Reject("Truncated coefficients", n => n["personalized_hrtf"]!["virtualizer_parameters"]!["rosella_coefficients"]!.AsArray().RemoveAt(10));
-Reject("Missing metadata", n => n["personalized_hrtf"]!.AsObject().Remove("phrtf_capture_metadata"));
+Warn("Missing metadata", n => n["personalized_hrtf"]!.AsObject().Remove("phrtf_capture_metadata"));
+Warn("Missing room metadata", n => n["personalized_hrtf"]!["virtualizer_parameters"]!.AsObject().Remove("room_model"));
+Reject("Oversized version", n => n["personalized_hrtf"]!["virtualizer_parameters"]!["rosella_coefficients_version"] = new string('1', 21));
+Reject("Missing coefficient version", n => n["personalized_hrtf"]!["virtualizer_parameters"]!.AsObject().Remove("rosella_coefficients_version"));
 Reject("Noninteger coefficient", n => n["personalized_hrtf"]!["virtualizer_parameters"]!["rosella_coefficients"]![10] = 1.5);
 foreach (var bytes in new[] { original[..^1], original.Concat(new byte[] { 0 }).ToArray(), Array.Empty<byte>() }) { bool rejected = false; try { profile.ApplyTo(bytes); } catch { rejected = true; } Assert(rejected, "Reject malformed endpoint framing " + bytes.Length); }
 var devices = await ProfileService.Devices(); Assert(devices.Count > 0, "Playback device enumeration");
