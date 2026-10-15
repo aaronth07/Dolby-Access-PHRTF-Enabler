@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "description": "Graph asset provenance and processing record. All paths are relative to the workspace root.",
+  "personalization_graphs": {
+    "artifacts": [
+      {
+        "artifact": "publication/Dolby-Access-PHRTF-Enabler/docs/images/dts-personalization.png",
+        "source": "reports/spatial_comparisons_2026-10-15/personalization_comparison/dts_personalization_off_on.png",
+        "artifact_sha256": "57a0b48fa2334350ff2b3b216d7dd59d369d93c5c5d2813b54291108f190b4a8",
+        "source_sha256": "57a0b48fa2334350ff2b3b216d7dd59d369d93c5c5d2813b54291108f190b4a8",
+        "pixels_copied_unchanged": true
+      },
+      {
+        "artifact": "publication/Dolby-Access-PHRTF-Enabler/docs/images/dolby-personalization.png",
+        "source": "reports/spatial_comparisons_2026-10-15/personalization_comparison/dolby_personalization_off_on.png",
+        "artifact_sha256": "d26991d069fbdf6831c994f0da2ada7948a122a1ad19d01362cb34c477fad0c1",
+        "source_sha256": "d26991d069fbdf6831c994f0da2ada7948a122a1ad19d01362cb34c477fad0c1",
+        "pixels_copied_unchanged": true
+      }
+    ],
+    "plotting_script": {
+      "path": "reports/spatial_comparisons_2026-10-15/plot_personalization_side_by_side.py",
+      "sha256": "25fa8a0f787610c4a98bd3439f20343960d7f984811366cea85ccf44b9138a92"
+    },
+    "processed_response_input": {
+      "path": "reports/spatial_comparisons_2026-10-15/graphs/front_left_untrimmed_responses.npz",
+      "sha256": "935e55fc0c8388742a2d0c013f5e7e8a934f0d0fa9362070f0d3673c14ed149c"
+    },
+    "source_inventory": {
+      "path": "reports/spatial_comparisons_2026-10-15/graphs/sources.json",
+      "sha256": "a6ddeff313bbb8d61601fb4196d377a2107e16313ab7f773c64ef3c278cba28c"
+    },
+    "processing": {
+      "capture_selection": "first repeat; first direction (30 degrees left, 0 degrees elevation, 1 meter)",
+      "frequency_response": "131072-point FFT; mean left/right power; 700 log-spaced centers from 20 Hz to 20 kHz; 1/6-octave power smoothing",
+      "impulse_response_energy": "earliest direct peak anchor; mean left/right squared pressure in 2 ms blocks; no gain normalization",
+      "matched_axes": true
+    },
+    "restoration_evidence": {
+      "evidence": {
+        "path": "reports/spatial_comparisons_2026-10-15/capture_room_30deg/result.json",
+        "sha256": "460f66d40f0834adc4bae3ce404db6cb359c7574352c30708ce6c4a2c3361f09"
+      },
+      "restored": true,
+      "defaults_unchanged": true,
+      "cleanup_error_count": 0,
+      "configuration_equal": true,
+      "differences_count": 0,
+      "stock_profile_hash_matches_restored": true,
+      "personalized_dolby_profile_hash_matches_restored": true,
+      "restoration_verified": true
+    }
+  },
+  "dts_room_presets_graph": {
+    "artifact": {
+      "path": "publication/Dolby-Access-PHRTF-Enabler/docs/images/dts-room-presets.png",
+      "sha256": "841510ed6963295b3fe7f329b210dc95d67f6568af62caad73ea11a9d381d836"
+    },
+    "plotting_script": {
+      "path": "publication/Dolby-Access-PHRTF-Enabler/docs/plot_room_comparison.py",
+      "sha256": "db53e45aa7959170ff24253813b9e88849091f60a1054c06cbe0864f9b740f12"
+    },
+    "research_report": {
+      "path": "SpatialRendererProfileImport/dts/room_presets_20261015/report.md",
+      "sha256": "214cd190bc8ff4cec30f10dd9246ae3cde6e5770c2712c66e8f389a6331e400f"
+    },
+    "inputs": [
+      {
+        "label": "Balanced",
+        "response": {
+          "path": "SpatialRendererProfileImport/dts/room_presets_20261015/native_sd1_sd2_test/personalized_sd1_room/untrimmed_responses.npy",
+          "sha256": "9e28dab97240b117102e19993db13dce16cb609bba135360e713f835fc81805a"
+        },
+        "capture_metadata": {
+          "path": "SpatialRendererProfileImport/dts/room_presets_20261015/native_sd1_sd2_test/personalized_sd1_room/capture.json",
+          "sha256": "a7a47c675ffd3d63928c45321f65a67ebfdb9c430d36b8449eb56cc6f3ce2515"
+        },
+        "sample_rate_hz": 48000,
+        "array_layout": "direction × ear × sample",
+        "array_shape": [
+          6,
+          2,
+          96000
+        ],
+        "direction_index_zero_based": 0,
+        "direction": {
+          "azimuth_degrees": 30,
+          "elevation_degrees": 0,
+          "radius_meters": 1
+        },
+        "repeat": 1
+      },
+      {
+        "label": "Spacious",
+        "response": {
+          "path": "SpatialRendererProfileImport/dts/room_presets_20261015/native_sd1_sd2_test/personalized_sd2_room/untrimmed_responses.npy",
+          "sha256": "92bc5db48ac359b47dda7196184eded938d94491ad65d3919962b47b531982c2"
+        },
+        "capture_metadata": {
+          "path": "SpatialRendererProfileImport/dts/room_presets_20261015/native_sd1_sd2_test/personalized_sd2_room/capture.json",
+          "sha256": "9973be7ec9db6c309724429518b33a19eecaf4e2e7d1332eca162404357491a6"
+        },
+        "sample_rate_hz": 48000,
+        "array_layout": "direction × ear × sample",
+        "array_shape": [
+          6,
+          2,
+          96000
+        ],
+        "direction_index_zero_based": 0,
+        "direction": {
+          "azimuth_degrees": 30,
+          "elevation_degrees": 0,
+          "radius_meters": 1
+        },
+        "repeat": 1
+      }
+    ],
+    "processing": {
+      "comparison": "Balanced and Spacious native room-send captures with the personalized FIRs held constant",
+      "frequency_response": "131072-point FFT; mean left/right power; 700 log-spaced centers from 20 Hz to 20 kHz; 1/6-octave power smoothing",
+      "impulse_response_energy": "earliest direct peak anchor; mean left/right squared pressure in 2 ms blocks; no gain normalization",
+      "frequency_axes_hz": [
+        20,
+        20000
+      ],
+      "frequency_level_axes_db": [
+        -40,
+        15
+      ],
+      "energy_time_axes_ms": [
+        0,
+        350
+      ],
+      "energy_level_axes_db": [
+        -110,
+        0
+      ],
+      "matched_axes": true
+    },
+    "restoration_evidence": {
+      "result": {
+        "path": "SpatialRendererProfileImport/dts/room_presets_20261015/native_sd1_sd2_test/result.json",
+        "sha256": "e258058df29d6979e4983ee917a4fd6c60d2a584c4fbd6418a68967b6f06d082"
+      },
+      "analysis": {
+        "path": "SpatialRendererProfileImport/dts/room_presets_20261015/native_sd1_sd2_test/analysis.json",
+        "sha256": "b24dcb3ec1dcbefd74db2563e37d5d86e7c80ca06264f3d9d084ad577aa93ca8"
+      },
+      "restored": true,
+      "analysis_restoration_verified": true,
+      "configuration_equal": true,
+      "raw_equal": true,
+      "differences_count": 0,
+      "defaults_unchanged": true,
+      "cleanup_error_count": 0,
+      "stock_profile_hash_matches_restored": true,
+      "restoration_verified": true
+    }
+  },
+  "distribution_boundary": "Contains plot assets and generic plotting code only; raw response arrays and audio captures are not included."
+}

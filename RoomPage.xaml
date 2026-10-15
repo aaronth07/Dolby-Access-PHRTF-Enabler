@@ -1,0 +1,37 @@
+<UserControl x:Class="AtmosProfile.RoomPage"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Loaded="OnLoaded">
+ <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+  <StackPanel Padding="24" Spacing="16">
+   <TextBlock Text="Dolby room" Style="{ThemeResource TitleTextBlockStyle}"/>
+   <ComboBox x:Name="Devices" Header="Playback device" HorizontalAlignment="Stretch" SelectionChanged="DeviceChanged" AutomationProperties.AutomationId="RoomDevice"/>
+   <TextBlock x:Name="Status" TextWrapping="Wrap" AutomationProperties.AutomationId="RoomStatus"/>
+   <StackPanel Orientation="Horizontal" Spacing="8">
+    <Button x:Name="Enable" Content="Enable Atmos" Click="EnableClicked" AutomationProperties.AutomationId="RoomEnable"/>
+   </StackPanel>
+   <ComboBox x:Name="Setting" AutomationProperties.AutomationId="RoomSetting" Header="Room setting" HorizontalAlignment="Stretch" SelectedIndex="0" SelectionChanged="SettingChanged">
+    <ComboBoxItem Content="On" Tag="On"/>
+    <ComboBoxItem Content="Off" Tag="Off"/>
+    <ComboBoxItem Content="50% feedback" Tag="HalfFeedback"/>
+    <ComboBoxItem Content="200% room/direct (experimental)" Tag="DoubleRoom"/>
+    <ComboBoxItem Content="400% room/direct (experimental)" Tag="QuadRoom"/>
+    <ComboBoxItem Content="Custom" Tag="Custom"/>
+    <ToolTipService.ToolTip>50% feedback shortens decay. The exact decay time depends on the profile.</ToolTipService.ToolTip>
+   </ComboBox>
+   <StackPanel x:Name="CustomControls" Spacing="12" Visibility="Collapsed">
+    <NumberBox x:Name="RoomLevel" Header="Room output level (%)" Minimum="0" Maximum="150" Value="100" SpinButtonPlacementMode="Inline" ValueChanged="CustomChanged" AutomationProperties.AutomationId="RoomLevel"><ToolTipService.ToolTip>Output-tap gain relative to the original room. Native coefficient limits apply. Feedback controls decay separately.</ToolTipService.ToolTip></NumberBox>
+    <NumberBox x:Name="RoomFeedback" Header="Feedback (%)" Minimum="0" Maximum="100" Value="100" SpinButtonPlacementMode="Inline" ValueChanged="CustomChanged" AutomationProperties.AutomationId="RoomFeedback"/>
+   </StackPanel>
+   <StackPanel Orientation="Horizontal" Spacing="8">
+    <Button x:Name="Apply" Content="Apply" Click="ApplyClicked" AutomationProperties.AutomationId="RoomApply"/>
+    <Button x:Name="Restore" Content="Restore" Click="RestoreClicked" AutomationProperties.AutomationId="RoomRestore">
+     <ToolTipService.ToolTip>Restore the room settings saved before this tab's first change.</ToolTipService.ToolTip>
+    </Button>
+   </StackPanel>
+   <ProgressBar x:Name="Progress" IsIndeterminate="True" Visibility="Collapsed"/>
+   <InfoBar x:Name="Message" IsOpen="False" IsClosable="True" AutomationProperties.AutomationId="RoomMessage">
+    <InfoBar.ActionButton><Button x:Name="Allow" AutomationProperties.AutomationId="RoomAllow" Content="Allow anyways" Visibility="Collapsed" Click="AllowClicked"/></InfoBar.ActionButton>
+   </InfoBar>
+  </StackPanel>
+ </ScrollViewer>
+</UserControl>

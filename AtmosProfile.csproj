@@ -14,6 +14,7 @@
     <EnableMsixTooling>true</EnableMsixTooling>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <DefaultItemExcludes>$(DefaultItemExcludes);release\**;Tests\**;PortableLauncher\**</DefaultItemExcludes>
   </PropertyGroup>
   <ItemGroup>
     <Content Include="Assets\SplashScreen.scale-200.png" />
@@ -81,17 +82,19 @@
     <EnableWinAppRunSupport>false</EnableWinAppRunSupport>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="DtsTools\bin\**\*" />
+    <None Include="DtsTools\bin\**\*" Link="DtsTools\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="Tools\*" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
     <Compile Remove="Tests\**\*.cs" />
     <Compile Remove="release\**\*.cs" />
     <Compile Remove="PortableLauncher\**\*.cs" />
   </ItemGroup>
   <Target Name="IncludeUnpackagedXamlResources" AfterTargets="Publish">
-    <Copy SourceFiles="$(TargetDir)$(AssemblyName).pri;$(TargetDir)App.xbf;$(TargetDir)MainWindow.xbf" DestinationFolder="$(PublishDir)" />
+    <Copy SourceFiles="$(TargetDir)$(AssemblyName).pri;$(TargetDir)App.xbf;$(TargetDir)MainWindow.xbf;$(TargetDir)RoomPage.xbf;$(TargetDir)DtsPage.xbf" DestinationFolder="$(PublishDir)" />
   </Target>
   <PropertyGroup>
     <AssemblyName>DolbyAccessPhrtfEnabler</AssemblyName>
-    <Version>1.0.3</Version>
+    <Version>2.0.0</Version>
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
     <PathMap>$(MSBuildProjectDirectory)=/_/src</PathMap>

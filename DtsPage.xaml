@@ -1,0 +1,46 @@
+<UserControl x:Class="AtmosProfile.DtsPage"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Loaded="OnLoaded">
+ <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+  <StackPanel Padding="24" Spacing="12">
+   <TextBlock Text="DTS Headphone:X" Style="{ThemeResource TitleTextBlockStyle}"/>
+   <ComboBox x:Name="Devices" Header="Playback device" HorizontalAlignment="Stretch" SelectionChanged="DeviceChanged" AutomationProperties.AutomationId="DtsDevice"/>
+   <Grid ColumnSpacing="8">
+    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+    <TextBox x:Name="SofaPath" Header="SOFA file" PlaceholderText="Select or paste a file path" TextChanged="PathChanged" AutomationProperties.AutomationId="DtsSofaPath"/>
+    <Button x:Name="Browse" AutomationProperties.AutomationId="DtsBrowse" Grid.Column="1" Content="Browse..." VerticalAlignment="Bottom" Click="BrowseClicked"/>
+   </Grid>
+   <Expander x:Name="DetailsPanel" Header="Conversion details" Visibility="Collapsed" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" AutomationProperties.AutomationId="DtsDetails">
+    <TextBlock x:Name="Details" TextWrapping="Wrap" IsTextSelectionEnabled="True" AutomationProperties.AutomationId="DtsDetailsText"/>
+   </Expander>
+   <Button x:Name="Convert" Content="Verify and convert" Click="ConvertClicked" AutomationProperties.AutomationId="DtsConvert">
+    <ToolTipService.ToolTip>Convert to the installed DTS direction grid. Both ears use the same interpolation weights.</ToolTipService.ToolTip>
+   </Button>
+   <TextBlock x:Name="Status" TextWrapping="Wrap" AutomationProperties.AutomationId="DtsStatus"/>
+   <InfoBar x:Name="Message" IsOpen="False" IsClosable="True" AutomationProperties.AutomationId="DtsMessage">
+    <InfoBar.ActionButton><Button x:Name="Allow" AutomationProperties.AutomationId="DtsAllow" Content="Allow anyways" Visibility="Collapsed" Click="AllowClicked"/></InfoBar.ActionButton>
+   </InfoBar>
+   <StackPanel Orientation="Horizontal" Spacing="8">
+    <Button x:Name="Enable" AutomationProperties.AutomationId="DtsEnable" Content="Enable DTS" Click="EnableClicked">
+     <ToolTipService.ToolTip>Switch this device's spatial sound to DTS Headphone:X.</ToolTipService.ToolTip>
+    </Button>
+   </StackPanel>
+   <ComboBox x:Name="Room" Header="Room preset" HorizontalAlignment="Stretch" SelectedIndex="0" SelectionChanged="RoomChanged" AutomationProperties.AutomationId="DtsRoom">
+    <ComboBoxItem Content="Original" Tag="Original"/>
+    <ComboBoxItem Content="Balanced" Tag="Balanced"/>
+    <ComboBoxItem Content="Spacious" Tag="Spacious"/>
+    <ComboBoxItem Content="Off" Tag="Off"/>
+    <ToolTipService.ToolTip>Changes only the native room sends. Original restores room sends saved before the first DTS change.</ToolTipService.ToolTip>
+   </ComboBox>
+   <ToggleSwitch x:Name="Custom" Header="Custom DTS profile" OnContent="On" OffContent="Off" Toggled="Toggled" IsEnabled="False" AutomationProperties.AutomationId="DtsToggle">
+    <ToolTipService.ToolTip>Off restores the saved DTS profile.</ToolTipService.ToolTip>
+   </ToggleSwitch>
+   <StackPanel Orientation="Horizontal" Spacing="8">
+    <Button x:Name="Apply" Content="Apply profile" Click="ApplyClicked" IsEnabled="False" AutomationProperties.AutomationId="DtsApply"/>
+    <Button x:Name="Restore" Content="Restore" Click="RestoreClicked" AutomationProperties.AutomationId="DtsRestore"/>
+   </StackPanel>
+   <Button x:Name="Reset" Content="Reset DTS configuration" Click="ResetClicked" AutomationProperties.AutomationId="DtsReset"/>
+<ProgressBar x:Name="Progress" IsIndeterminate="True" Visibility="Collapsed"/>
+  </StackPanel>
+ </ScrollViewer>
+</UserControl>

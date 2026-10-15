@@ -1,116 +1,76 @@
 # Dolby Access PHRTF Enabler
 
-Enables personalized `.personalized_headphone` profiles in Dolby Atmos for Headphones on Windows. Profiles are applied through Dolby’s native system-effects property and used by Windows Spatial Sound for object-based binaural rendering.
+Load personalized headphone profiles into **Dolby Atmos for Headphones** or **DTS Headphone:X** on Windows, with native room controls and automatic backups.
 
-Supports device selection, profile and renderer verification, one click personalization toggle, and backups.
+Version **2.0** adds DTS personalization and room presets, plus Dolby 200% and 400% room/direct modes.
 
-## Installation
+![Dolby PHRTF controls](docs/images/app-dolby.png)
 
-Download `DolbyAccessPhrtfEnabler-Portable.exe` from [Releases](../../releases/latest) and run it. It extracts and verifies the bundled application automatically under `%LOCALAPPDATA%\AtmosProfile\cache`, alongside the backup directories. The launcher includes the application and its required runtimes. The folder ZIP remains available for manual extraction.
+## Run
 
-Requirements:
-- Windows x64
-- Dolby Atmos for Headphones installed and enabled on the selected playback device
-- A personalized headphone profile (`1.1.0` tested; other versions show a warning)
+Download the portable EXE from the [latest release](https://github.com/aaronth07/Dolby-Access-PHRTF-Enabler/releases/latest), or extract the Windows x64 folder ZIP and run `DolbyAccessPhrtfEnabler.exe`. The portable launcher verifies its bundled files and extracts them under `%LOCALAPPDATA%\AtmosProfile\cache`. Application runtimes and the SOFA converter are included.
 
-To enable Atmos, open **Windows Settings → System → Sound**, select the playback device, and set **Spatial sound** to **Dolby Atmos for Headphones**. _Note: This will only work with an activated copy of Dolby Atmos for Headphones as Atmos must be unlocked and activated on the selected device to be able to replace the rendering data to necessary for using the personalized profile._
-## Usage
+Requirements: Windows 10/11 x64, an active playback endpoint, and an installed, activated copy of Dolby Atmos for Headphones or DTS Sound Unbound. The app can enable the selected spatial provider; it does not activate vendor licenses.
 
-1. Close Dolby Access.
-2. Select the playback device.
-3. Select the `.personalized_headphone` file.
-4. Click **Verify Atmos**.
-5. Enable **Personalized profile**.
+## Dolby Atmos
 
-**Default playback device** is the initial selection and follows the current Windows default at the start of each operation. A named selection targets that device directly. For playback applications that use the Windows default device, ensure Atmos is enabled on that device.
+1. Close Dolby Access and select the playback device.
+2. Choose a `.personalized_headphone` profile. Valid contents are accepted regardless of extension.
+3. Use **Enable Atmos** if offered, then turn **Personalized profile** On.
 
-Profile verification checks file contents, metadata, coefficient layout, and checksum. Files with other extensions are accepted when their contents validate. **Verify Atmos** checks the selected spatial sound provider and Dolby profile storage.
+The toggle applies or restores the profile. Selecting a different valid file while On applies it immediately. Off returns the profile saved before the first import; this can itself be a personalized profile. Backups are automatic. Status refreshes on device/tab selection and after actions.
 
-Disabling **Personalized profile** restores the profile retained before the first import on that device. If a custom profile was already present, that profile becomes the restore point. Atmos remains enabled, with spatial processing briefly restarted during each switch.
+In **Dolby room**, select On, Off, 50% feedback, 200% room/direct, 400% room/direct, or Custom. **Room output level** scales the room output taps from 0-150% of their original value, subject to the native coefficient range. **Feedback** scales the recursive feedback from 0-100%, independently of output level. Feedback is not a calibrated decay-time setting. PHRTF apply defaults room processing On unless a previous app preference exists. Ordinary room changes preserve directional coefficients and reapply PHRTF if the saved baseline replaces it.
 
-### Backups
+The experimental **200% / 400% room/direct** modes halve or quarter directional fields (-6.02 / -12.04 dB), while retaining saved room taps and feedback. Overall makeup gain remains 0 dB. Apply requires confirmation. Repeated Apply and switching modes use the saved full-gain reference; On, Restore, and reset remove the attenuation. Load a full-gain PHRTF containing room output first. These modes were verified by the user; no new acoustic capture is bundled. Custom 150% scales room taps alone.
 
-A transaction backup is created automatically before each switch. **Back up** saves an additional copy of the current state.
+## DTS Headphone:X
 
-Backups are stored in `%LOCALAPPDATA%\AtmosProfile\<device GUID>\`. The original backup is preserved across subsequent imports and manual backups. 
+1. Select the playback device and binaural SOFA file, then **Verify and convert**.
+2. Enable DTS if offered. Choose **Original**, **Balanced**, **Spacious**, or **Off** under **Room preset**.
+3. Click **Apply profile**, or turn **Custom DTS profile** On.
 
-### Room response
+Room changes preserve personalized FIRs and the panner, and write the combined profile and transaction notification together. Original restores room sends saved before the first DTS change. Balanced/Spacious are extracted from the installed DTS Sound Unbound package; vendor preset binaries and decoding keys are not bundled. The verified mapping is for Sound Unbound 2026.3.31.0 and the compatible 23-node Windows headphone grid. If mapping is unavailable, an explicit override retains Original room sends instead of guessing a named preset.
 
-Importing a profile may also affect room processing. The tested configuration produced a substantially shorter response tail, indicating that room response, reflections, and reverb may be somewhat or entirely removed by applying this profile. Further research is underway on restoring this behavior. See  [technical report](report.md) for findings on directional coefficients, room tuning, the loading path, and reverberation.
+Applying a SOFA disables the endpoint's DTS headphone-correction filters. The app warns when it detects these filters active. The removed EQ dropdown did not represent the vendor app's EQ profile selector. Off or **Restore** returns the saved runtime profile, device EQ, and counter. Changing a vendor EQ/profile can replace the injected configuration, so reapply afterward.
 
-## Build
+The converter accepts binaural SimpleFreeFieldHRIR and GeneralFIR with a full-sphere grid, one source distance, and integer sample delays. It resamples to 48 kHz using one set of interpolation weights for both ears. Conversion details report dimensions, sample rate, delay, target grid, and native format-validation result. Error details explain rejected inputs. Status reports the selected provider and custom profile state, rather than claiming to verify installation.
 
-Install .NET SDK 10 and the Windows SDK, then run from the repository directory:
+## Persistence, reset, and overrides
 
-```powershell
-dotnet publish AtmosProfile.csproj -c Release -r win-x64 -p:Platform=x64 -o release/DolbyAccessPhrtfEnabler
-```
+Settings remain on the selected device after exit. Audio reinitialization, device recreation, and vendor profile changes may require reapplying. The app does not run a background monitor.
 
-Run `release/DolbyAccessPhrtfEnabler/DolbyAccessPhrtfEnabler.exe`. The publish target includes the PRI and XBF resources required by WinUI.
+Backups are stored in `%LOCALAPPDATA%\AtmosProfile\<device GUID>`. Each write retains a transaction snapshot, while the original restore point is kept separately.
 
-The application uses C# and native WinUI 3 controls. Profile parsing and endpoint operations run off the UI thread. Spatial-format switching uses the bundled SoundVolumeView executable.
+- **Reset configuration** restores saved Dolby room fields, clears Dolby state and backups, and saves the current personalized profile as the new Off baseline. DTS is preserved.
+- **Reset DTS configuration** restores the saved DTS runtime profile, EQ and counter, then clears DTS conversions and backups. Dolby is preserved.
 
-## Validation
+Both resets require confirmation in the app. Unfamiliar versions, external configuration changes, and damaged backup records offer explicit overrides where structurally valid data can be preserved. Invalid backup records are retained locally. Unknown encoder versions skip private native calls under override; malformed coefficient framing, checksums, or unsafe room edits are still rejected.
 
-Backend validation covered:
-- Exact payload reproduction and extension-independent profile identification
-- Warnings for unfamiliar metadata and rejection of malformed coefficients
-- Device enumeration and backup readback
-- Live personalization Off/On switching
-- Rollback following an injected post-write failure
+## Recorded comparisons
 
-The tested device’s initial personalized profile and Atmos state were restored at the end of testing.
+These are matched native spatial-object recordings at 30 degrees left, 0 degrees elevation, 1 m. Frequency response uses mean left/right power with 1/6-octave smoothing; impulse-response energy uses 2 ms blocks. Axes match and no gain normalization is applied. The measurements demonstrate renderer behavior for the tested profiles, rather than personal fit or listening quality.
 
-Run the test program with locally supplied fixtures:
+![Dolby personalization Off and On](docs/images/dolby-personalization.png)
 
-```powershell
-dotnet run --project Tests/Tests.csproj -- <profile-file> <original-api-payload> <expected-personalized-api-payload>
-```
+![DTS personalization Off and On](docs/images/dts-personalization.png)
 
-An optional endpoint ID and `--live` enable device testing. Live tests require a verified original backup, an initially personalized device with Atmos active, Dolby Access closed, and exclusive use of the selected audio device. The sequence switches personalization Off and On, then tests rollback after an injected failure.
+The earlier DTS Off/On comparison used muted room sends. Version 2.0 restores them by default.
 
-Private profiles and payload fixtures are excluded from the repository.
+![DTS Balanced and Spacious with identical personalized FIRs](docs/images/dts-room-presets.png)
 
-The published application has passed launch testing. Frontend interaction testing remains pending. Native profile import has been tested on one Windows system; other device and driver combinations may use different Dolby property branches.
+The room comparison changes only the first native stereo auxiliary vectors. Personalized FIR bytes are identical. Across the researched directions, Spacious increased 20-250 ms energy by approximately 9.8 dB relative to Balanced. Original runtime, transaction counter, configuration, and device defaults were restored in the source experiment. [Graph provenance](docs/graph-provenance.json) records inputs and hashes without distributing the private recordings.
 
-## Distribution
+## Documentation and build
 
-Releases include the complete, unmodified freeware SoundVolumeView distribution and its license in `Tools/readme.txt`. Its terms permit free noncommercial redistribution. Microsoft runtime notices are included with the corresponding files. Dolby Access, Dolby Atmos for Headphones, and personalized profiles must be obtained separately and are not bundled.
+- [User guide](docs/user-guide.md)
+- [Technical report](report.md)
+- [Release notes](docs/release-notes.md)
+- [Project site](docs/index.html)
+- [Build and test guide](docs/development.md)
 
-This project is independently developed. Dolby and Dolby Access are trademarks of their respective owner.
+The application is C# / WinUI 3, unpackaged and self-contained. Build with .NET SDK 10, Windows SDK, and MSVC for the native helper/portable launcher. Native tests cover one Windows system; property readback and format checks do not establish acoustic output on every driver.
 
+Release packages exclude personal profiles, raw captures, registry exports, endpoint identifiers, account data, and vendor preset/DLL files. Dolby and DTS names identify third-party products; this is an independent utility.
 
-## PowerShell version
-
-Download the PowerShell source ZIP from Releases, or use the repository source. Use 64-bit PowerShell 7.4 or later. The script shares the application backend and compiles the included C# source in memory.
-
-```powershell
-pwsh -File scripts/Set-DolbyPersonalizedProfile.ps1 -Mode List
-pwsh -File scripts/Set-DolbyPersonalizedProfile.ps1 -Mode Verify
-pwsh -File scripts/Set-DolbyPersonalizedProfile.ps1 -Mode On -ProfilePath "my-profile.personalized_headphone"
-pwsh -File scripts/Set-DolbyPersonalizedProfile.ps1 -Mode Off
-```
-
-The default device is selected unless you supply `-DeviceId` from the List output. `-Mode Validate -ProfilePath <file>` checks a profile without accessing an endpoint, and `-Mode Backup` saves a backup.
-
-By default, On and Off prompt you to turn spatial sound Off and then re-enable Dolby Atmos for Headphones in Windows settings. Each change is verified before proceeding. This mode runs no downloaded executable. Add `-AutomaticRestart` to use the bundled SoundVolumeView helper for those steps. Both modes retain automatic backups and rollback.
-
-The coefficient checksum is recalculated from the selected profile and compared with that profile's stored checksum. Each valid profile can have its own checksum; it is not compared with one fixed reference profile.
-
-### Build the portable EXE
-
-The launcher is compiled with .NET Native AOT. Install the .NET 10 SDK and MSVC C++ build tools. Download the v1.0.3 Windows ZIP into `release`, then run:
-
-```powershell
-pwsh -File PortableLauncher/build-portable.ps1
-```
-
-The build script creates the file-integrity manifest and embeds the ZIP. The output is `release/portable/DolbyAccessPhrtfEnabler-Portable.exe`. Cached files are checked before launch; a damaged cache is replaced by a fresh extraction. Backups remain in their existing directories.
-
-## Configuration changes
-
-Paste a profile path into the file field or browse for a `.personalized_headphone` file. All files remain available in the file picker.
-
-If the endpoint profile changed outside the application, a warning offers **Allow anyways** to apply the selected profile or restore the saved original. The operation still creates a fresh backup and verifies the write and renderer restart.
-
-**Reset configuration** deletes the selected device's saved configuration and backups, restarts Atmos, and creates a fresh backup of its current profile. That current profile becomes the new Off baseline. The warning requires confirmation before deletion.
+When moving from the separate 200% / 400% experimental build, use Restore there before applying a profile in version 2.0. Production and experimental builds keep separate restore records but share device audio settings.

@@ -10,11 +10,18 @@ $ErrorActionPreference = 'Stop'
 if (-not [Environment]::Is64BitProcess) { throw 'Use 64-bit PowerShell 7.4 or later.' }
 $sourceRoot = Split-Path -Parent $PSScriptRoot
 if (-not ('AtmosProfile.ProfileService' -as [type])) {
-    $sources = @('NativeInterfaces.cs','AudioPlatform.cs','ProfileFile.cs','ProfileService.cs') | ForEach-Object { Join-Path $sourceRoot $_ }
+    $sources = @('NativeInterfaces.cs','AudioPlatform.cs','ProfileFile.cs','ProfileService.cs','SpatialStore.cs','DolbyRoomService.cs','DtsProfileService.cs','DtsRoomService.cs') | ForEach-Object { Join-Path $sourceRoot $_ }
     $references = (Get-ChildItem -LiteralPath (Join-Path $PSHOME 'ref') -Filter '*.dll').FullName
-    Add-Type -Path $sources -ReferencedAssemblies $references -CompilerOptions '/nullable:enable'
+    $usingSource = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N') + '.cs')
+    try {
+        [IO.File]::WriteAllText($usingSource, 'global using System; global using System.IO; global using System.Linq; global using System.Collections.Generic; global using System.Threading; global using System.Threading.Tasks;')
+        Add-Type -Path ($sources + $usingSource) -ReferencedAssemblies $references -CompilerOptions '/nullable:enable'
+    } finally { if (Test-Path -LiteralPath $usingSource) { Remove-Item -LiteralPath $usingSource } }
 }
 [AtmosProfile.ProfileService]::ToolRoot = $sourceRoot
+$transform = [AtmosProfile.ProfileService].GetProperty('PersonalizationTransform')
+$roomMethod = [AtmosProfile.ProfileService].Assembly.GetType('AtmosProfile.DolbyRoomService').GetMethod('PreserveSetting')
+[AtmosProfile.ProfileService]::PersonalizationTransform = $roomMethod.CreateDelegate($transform.PropertyType)
 $profile = $null
 if ($Mode -in 'On','Validate') {
     if (-not $ProfilePath) { throw 'Specify -ProfilePath.' }

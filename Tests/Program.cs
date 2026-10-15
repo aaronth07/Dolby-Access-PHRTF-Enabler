@@ -2,6 +2,9 @@ using AtmosProfile;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
+if (args.Length > 0 && args[0] == "--features") { await FeatureTests.Run(args); return; }
+if (args.Length > 0 && args[0] == "--review") { ReviewTests.Run(); return; }
+
 if (args.Length < 3)
 {
     Console.Error.WriteLine("Usage: Tests <profile> <original-api-payload> <expected-personalized-api-payload> [endpoint-id] [--live]");

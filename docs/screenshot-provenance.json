@@ -1,0 +1,20 @@
+{
+  "version": "1.2.0-rc.1",
+  "screenshots": [
+    {
+      "file": "images/app-dolby-room.png",
+      "sha256": "396f2c9f1a63b5f7d66b5f133734b0eec27e9f6c274c3ed67821c2dc9c4fc30f",
+      "method": "Unmodified capture of the candidate native WinUI application. Default-device label; no private paths or endpoint identifiers displayed."
+    },
+    {
+      "file": "images/app-dolby.png",
+      "sha256": "968194307a3c95d0bd293c9296dfd6526f6782077ce7b2d79de0b7e47a3834c5",
+      "method": "Unmodified capture of the candidate native WinUI application. Default-device label; no private paths or endpoint identifiers displayed."
+    },
+    {
+      "file": "images/app-dts.png",
+      "sha256": "07a909d833f9b720164e73d0cf08395dbd9998fd757c09ff40713974beaddb3f",
+      "method": "Unmodified capture of the candidate native WinUI application. Default-device label; no private paths or endpoint identifiers displayed."
+    }
+  ]
+}

@@ -9,8 +9,9 @@ public sealed partial class MainWindow : Window
 {
     ProfileFile? profile;
     ProfileStatus? status;
-    bool updating, busy;
+    bool updating, busy, loaded;
     Func<Task>? pending;
+    string? checkedProfilePath;
     AudioDevice? Selected => Devices.SelectedItem as AudioDevice;
     [DllImport("user32.dll")] static extern uint GetDpiForWindow(IntPtr window);
     public MainWindow()
@@ -23,31 +24,32 @@ public sealed partial class MainWindow : Window
     void Notify(string text, bool error = false) { pending = null; Allow.Visibility = Visibility.Collapsed; Message.Message = text; Message.Severity = error ? InfoBarSeverity.Error : InfoBarSeverity.Success; Message.IsOpen = true; }
     void UpdateControls()
     {
-        Allow.IsEnabled = !busy;
-        Devices.IsEnabled = Browse.IsEnabled = Verify.IsEnabled = ProfilePath.IsEnabled = !busy;
+        Allow.IsEnabled = EnableAtmos.IsEnabled = !busy;
+        Devices.IsEnabled = Browse.IsEnabled = ProfilePath.IsEnabled = !busy;
         Reset.IsEnabled = !busy && Selected != null;
-        ApplyProfile.IsEnabled = !busy && Selected != null && profile != null;
-        Backup.IsEnabled = !busy && status != null;
         Personalized.IsEnabled = !busy && status != null && (status.Personalized || profile != null);
         Progress.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
     }
     async Task Run(Func<Task> action, string failure = "The operation could not be completed.")
     {
         if (busy) return;
-        busy = true; UpdateControls();
+        busy = true; FeatureWindow.ActiveOperations++; UpdateControls();
         try { await action(); }
         catch (Exception error) {
+            try { await Refresh(); } catch { }
             try { System.IO.Directory.CreateDirectory(ProfileService.DataRoot); System.IO.File.WriteAllText(System.IO.Path.Combine(ProfileService.DataRoot, "last-error.log"), error.ToString()); } catch { }
             Notify(error is ProfileOperationException ? error.Message : error is AggregateException ? "The profile could not be restored. The backup is saved." : failure, true);
         }
-        finally { busy = false; UpdateControls(); }
+        finally { busy = false; FeatureWindow.ActiveOperations--; UpdateControls(); }
     }
     async void Loaded(object sender, RoutedEventArgs e) => await Run(async () =>
     {
+        if (loaded) { await Refresh(); return; }
         var devices = await ProfileService.Devices();
         devices.Insert(0, ProfileService.DefaultDevice);
         Devices.ItemsSource = devices;
         Devices.SelectedItem = ProfileService.DefaultDevice;
+        loaded = true;
         await Refresh();
     });
     async Task Refresh()
@@ -58,37 +60,46 @@ public sealed partial class MainWindow : Window
 
             if (Selected == null) { AtmosStatus.Text = "No playback device available."; return; }
             var device = ProfileService.Resolve(Selected);
-            try { status = await Task.Run(() => ProfileService.Inspect(device)); AtmosStatus.Text = status.Message; Personalized.IsOn = status.Personalized; }
-            catch { Personalized.IsOn = false; AtmosStatus.Text = "No supported Dolby profile on this device."; throw; }
+            try { status = await Task.Run(() => ProfileService.Inspect(device)); AtmosStatus.Text = status.Message; Personalized.IsOn = status.Personalized; EnableAtmos.Visibility = status.Atmos ? Visibility.Collapsed : Visibility.Visible; }
+            catch { EnableAtmos.Visibility = Visibility.Collapsed; Personalized.IsOn = false; AtmosStatus.Text = "No supported Dolby profile on this device."; throw; }
         }
         finally { updating = false; UpdateControls(); }
     }
     async void DeviceChanged(object sender, SelectionChangedEventArgs e) { pending = null; Allow.Visibility = Visibility.Collapsed; if (!busy) await Run(Refresh); }
-    async void VerifyClicked(object sender, RoutedEventArgs e) => await Run(async () => { await Refresh(); if (status?.Atmos == true) Notify("Atmos verified."); });
+    async void EnableAtmosClicked(object sender, RoutedEventArgs e) => await Run(async () => {
+        if (Selected is AudioDevice selected) {
+            var device = ProfileService.Resolve(selected);
+            await Task.Run(() => DtsProfileService.SelectProvider(device, AudioPlatform.Dolby, "Dolby Atmos for Headphones"));
+            await Refresh(); Notify("Dolby Atmos for Headphones enabled.");
+        }
+    });
     async void BrowseClicked(object sender, RoutedEventArgs e) => await Run(async () =>
     {
         var path = NativeFilePicker.Pick(WinRT.Interop.WindowNative.GetWindowHandle(this));
         if (path == null) return;
-        ProfilePath.Text = path; await LoadProfile();
+        ProfilePath.Text = path; await LoadSelection();
     }, "The file picker could not be opened.");
     async Task LoadProfile()
     {
+        pending = null; Allow.Visibility = Visibility.Collapsed;
         profile = null; Metadata.Visibility = Visibility.Collapsed;
-        string path = ProfilePath.Text.Trim().Trim('"'); if (path.Length == 0) return;
+        string path = ProfilePath.Text.Trim().Trim('"'); checkedProfilePath = path; if (path.Length == 0) return;
         try { profile = await Task.Run(() => ProfileFile.Load(path)); } catch { throw new ProfileOperationException("The profile could not be verified."); }
         ProfilePath.Text = path;
-        Metadata.Text = $"{profile.Name} Ãƒâ€šÃ‚Â· {profile.Version} Ãƒâ€šÃ‚Â· {profile.Room}"; Metadata.Visibility = Visibility.Visible;
+        Metadata.Text = $"{profile.Name}, {profile.Version}, {profile.Room}"; Metadata.Visibility = Visibility.Visible;
         if (profile.Warning != null) { Notify(profile.Warning); Message.Severity = InfoBarSeverity.Warning; }
         else Notify("Profile verified.");
     }
-    async void PathChanged(object sender, RoutedEventArgs e) { if (!busy) await Run(LoadProfile, "The profile could not be verified."); }
-    async void PathKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e) { if (e.Key == Windows.System.VirtualKey.Enter) { e.Handled = true; await Run(LoadProfile, "The profile could not be verified."); } }
-    async void BackupClicked(object sender, RoutedEventArgs e) => await Run(async () =>
+    async void PathChanged(object sender, RoutedEventArgs e) { if (!busy && ProfilePath.Text.Trim().Trim('"') != checkedProfilePath) await Run(LoadSelection, "The profile could not be verified."); }
+    async void PathKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e) { if (e.Key == Windows.System.VirtualKey.Enter) { e.Handled = true; await Run(LoadSelection, "The profile could not be verified."); } }
+    async Task LoadSelection()
     {
-        if (Selected == null) return;
-        var device = ProfileService.Resolve(Selected); var folder = await Task.Run(() => ProfileService.Backup(device));
-        await Refresh(); Notify("Backup saved.");
-    });
+        bool enabled = status?.Personalized == true;
+        var selected = Selected;
+        await LoadProfile();
+        if (enabled && selected != null && profile != null)
+            await Apply(ProfileService.Resolve(selected), profile, true, false);
+    }
     void Warn(string text, Func<Task> action)
     {
         Message.Message = text; Message.Severity = InfoBarSeverity.Warning; Message.IsOpen = true;
@@ -99,12 +110,14 @@ public sealed partial class MainWindow : Window
         var action = pending; pending = null; Allow.Visibility = Visibility.Collapsed;
         if (action != null) await Run(action);
     }
-    void ResetClicked(object sender, RoutedEventArgs e)
+    async void ResetClicked(object sender, RoutedEventArgs e)
     {
         if (busy || Selected == null) return;
-        var device = ProfileService.Resolve(Selected);
-        Warn($"Reset {device.Name}? This deletes this device's application backups and configuration, restarts Atmos, and saves the current endpoint profile as the new Off baseline.", async () => {
-            await Task.Run(() => ProfileService.Reset(device)); profile = null; ProfilePath.Text = ""; Metadata.Visibility = Visibility.Collapsed; await Refresh(); Notify("Configuration reset.");
+        var selected = Selected;
+        await Run(() => {
+        var device = ProfileService.Resolve(selected);
+        Warn($"Reset Dolby configuration for {device.Name}? This restores saved room settings, clears PHRTF and room backups, and saves the current personalized profile as the new Off baseline. DTS is kept.", () => ResetConfiguration(device, false));
+        return Task.CompletedTask;
         });
     }
     async Task Apply(AudioDevice device, ProfileFile? selectedProfile, bool enabled, bool force)
@@ -117,16 +130,20 @@ public sealed partial class MainWindow : Window
             Warn(e.Message + " Allow to overwrite it and restart Atmos.", () => Apply(device, selectedProfile, enabled, true));
         } catch { await Refresh(); throw; }
     }
-    async void ApplyClicked(object sender, RoutedEventArgs e)
+    async Task ResetConfiguration(AudioDevice device, bool force)
     {
-        if (busy || Selected == null) return;
-        var device = ProfileService.Resolve(Selected);
-        await Run(async () => { await LoadProfile(); await Apply(device, profile, true, false); });
+        try {
+            await Task.Run(() => ProfileService.Reset(device, force));
+            profile = null; checkedProfilePath = ""; ProfilePath.Text = ""; Metadata.Visibility = Visibility.Collapsed;
+            await Refresh(); Notify("Dolby configuration reset.");
+        } catch (ProfileWarningException e) {
+            Warn(e.Message, () => ResetConfiguration(device, true));
+        }
     }
     async void Toggled(object sender, RoutedEventArgs e)
     {
         if (updating || busy || Selected == null) return;
-        bool enabled = Personalized.IsOn; var device = ProfileService.Resolve(Selected);
-        await Run(async () => { if (enabled) await LoadProfile(); await Apply(device, profile, enabled, false); });
+        bool enabled = Personalized.IsOn; var selected = Selected;
+        await Run(async () => { var device = ProfileService.Resolve(selected); if (enabled) await LoadProfile(); await Apply(device, profile, enabled, false); });
     }
 }

@@ -8,3 +8,6 @@ artifacts/
 *.personalized_headphone
 *.bin
 original.json
+
+__pycache__/
+*.pyc
