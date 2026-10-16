@@ -61,6 +61,7 @@ The earlier DTS Off/On comparison used muted room sends. Version 2.0 restores th
 
 The room comparison changes only the first native stereo auxiliary vectors. Personalized FIR bytes are identical. Across the researched directions, Spacious increased 20-250 ms energy by approximately 9.8 dB relative to Balanced. Original runtime, transaction counter, configuration, and device defaults were restored in the source experiment. [Graph verification](docs/graph-provenance.json) records inputs and hashes without distributing the private recordings.
 
+#### _Dolby Atmos Personalized vs Generic Room Settings_
 ![Dolby Atmos Personalized vs Generic Room Settings](https://github.com/user-attachments/assets/8de2d624-e5b2-477b-84c8-c2f69b9a52e7)
 
 
