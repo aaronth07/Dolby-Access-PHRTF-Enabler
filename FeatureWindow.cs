@@ -6,7 +6,6 @@ internal static class FeatureWindow
 {
     public static Window Owner { get; private set; } = null!;
     public static int ActiveOperations;
-    static int width, minimumHeight;
     static readonly Subclass Callback = WindowProc;
     delegate IntPtr Subclass(IntPtr window, uint message, IntPtr wParam, IntPtr lParam, nuint id, nuint data);
     [StructLayout(LayoutKind.Sequential)] struct Point { public int X, Y; }
@@ -17,10 +16,10 @@ internal static class FeatureWindow
     public static void Attach(Window window)
     {
         Owner = window;
-        if (window.AppWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter) presenter.IsMaximizable = false;
         var handle = WinRT.Interop.WindowNative.GetWindowHandle(window);
-        width = window.AppWindow.Size.Width; minimumHeight = (int)(640 * GetDpiForWindow(handle) / 96.0);
-        window.AppWindow.Resize(new(width, Math.Max(window.AppWindow.Size.Height, (int)(720 * GetDpiForWindow(handle) / 96.0))));
+        var area = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(window.AppWindow.Id, Microsoft.UI.Windowing.DisplayAreaFallback.Nearest).WorkArea;
+        double scale = GetDpiForWindow(handle) / 96.0;
+        window.AppWindow.Resize(new(Math.Min(window.AppWindow.Size.Width, area.Width), Math.Min((int)(720 * scale), area.Height)));
         if (!SetWindowSubclass(handle, Callback, 1, 0)) throw new InvalidOperationException("Window sizing could not be configured.");
         window.AppWindow.Closing += (_, e) => { if (ActiveOperations > 0) e.Cancel = true; };
     }
@@ -29,13 +28,11 @@ internal static class FeatureWindow
         var result = DefSubclassProc(hwnd, message, wParam, lParam);
         if (message == 0x0024) {
             var limits = Marshal.PtrToStructure<MinMax>(lParam);
-            limits.MinTrackSize.X = limits.MaxTrackSize.X = width;
-            limits.MinTrackSize.Y = minimumHeight;
+            double scale = GetDpiForWindow(hwnd) / 96.0;
+            var area = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(Owner.AppWindow.Id, Microsoft.UI.Windowing.DisplayAreaFallback.Nearest).WorkArea;
+            limits.MinTrackSize.X = Math.Min((int)(480 * scale), area.Width);
+            limits.MinTrackSize.Y = Math.Min((int)(420 * scale), area.Height);
             Marshal.StructureToPtr(limits, lParam, false);
-        }
-        if (message == 0x02e0) {
-            width = (int)(560 * GetDpiForWindow(hwnd) / 96.0);
-            minimumHeight = (int)(640 * GetDpiForWindow(hwnd) / 96.0);
         }
         return result;
     }

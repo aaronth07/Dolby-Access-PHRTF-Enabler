@@ -22,6 +22,22 @@ internal static class ReviewTests
             U(end + 24 + 20, BitConverter.SingleToUInt32Bits(-1));
             return data;
         }
+        var emptyInitialization = Convert.FromHexString("0101010001000000000000000100");
+        var fixtureProfile = new ProfileFile("Test", "1.1.0", "Test", [1, 2, 3]);
+        Assert(ProfileService.CompatibilityWarning([]) != null, "Missing Dolby initialization exposes a compatibility warning");
+        Reject<ProfileWarningException>(() => ProfileService.PreparePersonalization(fixtureProfile, [], false), "Missing Dolby initialization requires explicit force");
+        Assert(ProfileService.PreparePersonalization(fixtureProfile, [], true).SequenceEqual(fixtureProfile.ApplyTo(emptyInitialization)), "Force initializes a missing Dolby property from a device-independent envelope");
+        byte[] opaqueInitialization = [255, 12, 34];
+        Reject<ProfileWarningException>(() => ProfileService.PreparePersonalization(fixtureProfile, opaqueInitialization, false), "Unfamiliar Dolby framing requests an override");
+        Assert(ProfileService.PreparePersonalization(fixtureProfile, opaqueInitialization, true).SequenceEqual(fixtureProfile.ApplyTo(emptyInitialization)), "Force replaces unfamiliar initialization without interpreting its bytes");
+        Assert(opaqueInitialization.SequenceEqual(new byte[] {255,12,34}), "Override leaves the original unfamiliar bytes unchanged for backup");
+        Assert(ProfileService.CompatibilityWarning(emptyInitialization, true) != null, "Additional Dolby configuration exposes a warning rather than a fatal error");
+        Assert(ProfileService.CompatibilityWarning(emptyInitialization) == null, "Known Dolby initialization needs no override");
+        SpatialFiles.VerifyUnchanged(new() { ["keep"] = "a" }, new() { ["keep"] = "a", ["allowed"] = "b" }, "allowed");
+        SpatialFiles.VerifyUnchanged(new() { ["keep"] = "a", ["allowed"] = "b" }, new() { ["keep"] = "a" }, "allowed");
+        Assert(true, "Snapshot verification permits creating or removing only the explicitly allowed property");
+        Reject<ProfileOperationException>(() => SpatialFiles.VerifyUnchanged(new() { ["keep"] = "a" }, new() { ["keep"] = "a", ["unexpected"] = "b" }, "allowed"), "Snapshot verification still rejects unrelated added properties");
+        Reject<ProfileOperationException>(() => SpatialFiles.VerifyUnchanged(new() { ["keep"] = "a", ["unexpected"] = "b" }, new() { ["keep"] = "a" }, "allowed"), "Snapshot verification still rejects unrelated removed properties");
         var original = Spac(); var applied = Spac(16); applied[135] = 0x3f;
         DtsProfileService.VerifyTemplate(original, applied);
         Assert(true, "DTS template check permits new FIRs and response lengths");

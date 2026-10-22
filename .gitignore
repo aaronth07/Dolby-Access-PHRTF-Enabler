@@ -11,3 +11,9 @@ original.json
 
 __pycache__/
 *.pyc
+
+SonicPrototype/**/*.dll
+SonicPrototype/**/*.exe
+SonicPrototype/**/*.obj
+SonicPrototype/**/*.lib
+SonicPrototype/**/*.exp

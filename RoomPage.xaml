@@ -3,7 +3,7 @@
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Loaded="OnLoaded">
  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
   <StackPanel Padding="24" Spacing="16">
-   <TextBlock Text="Dolby room" Style="{ThemeResource TitleTextBlockStyle}"/>
+   <TextBlock Text="Dolby room" Style="{ThemeResource TitleTextBlockStyle}" TextWrapping="Wrap"/>
    <ComboBox x:Name="Devices" Header="Playback device" HorizontalAlignment="Stretch" SelectionChanged="DeviceChanged" AutomationProperties.AutomationId="RoomDevice"/>
    <TextBlock x:Name="Status" TextWrapping="Wrap" AutomationProperties.AutomationId="RoomStatus"/>
    <StackPanel Orientation="Horizontal" Spacing="8">
@@ -18,6 +18,7 @@
     <ComboBoxItem Content="Custom" Tag="Custom"/>
     <ToolTipService.ToolTip>50% feedback shortens decay. The exact decay time depends on the profile.</ToolTipService.ToolTip>
    </ComboBox>
+   <CheckBox x:Name="GainCorrection" Content="Gain correction" Visibility="Collapsed" Checked="GainCorrectionChanged" Unchecked="GainCorrectionChanged" AutomationProperties.AutomationId="RoomGainCorrection"><ToolTipService.ToolTip>Apply +6 dB overall gain for 200%, or +12 dB for 400%, using the native Atmos EQ. Higher output can clip.</ToolTipService.ToolTip></CheckBox>
    <StackPanel x:Name="CustomControls" Spacing="12" Visibility="Collapsed">
     <NumberBox x:Name="RoomLevel" Header="Room output level (%)" Minimum="0" Maximum="150" Value="100" SpinButtonPlacementMode="Inline" ValueChanged="CustomChanged" AutomationProperties.AutomationId="RoomLevel"><ToolTipService.ToolTip>Output-tap gain relative to the original room. Native coefficient limits apply. Feedback controls decay separately.</ToolTipService.ToolTip></NumberBox>
     <NumberBox x:Name="RoomFeedback" Header="Feedback (%)" Minimum="0" Maximum="100" Value="100" SpinButtonPlacementMode="Inline" ValueChanged="CustomChanged" AutomationProperties.AutomationId="RoomFeedback"/>
@@ -30,7 +31,7 @@
    </StackPanel>
    <ProgressBar x:Name="Progress" IsIndeterminate="True" Visibility="Collapsed"/>
    <InfoBar x:Name="Message" IsOpen="False" IsClosable="True" AutomationProperties.AutomationId="RoomMessage">
-    <InfoBar.ActionButton><Button x:Name="Allow" AutomationProperties.AutomationId="RoomAllow" Content="Allow anyways" Visibility="Collapsed" Click="AllowClicked"/></InfoBar.ActionButton>
+    <InfoBar.ActionButton><Button x:Name="Allow" AutomationProperties.AutomationId="RoomAllow" Content="Allow anyway" Visibility="Collapsed" Click="AllowClicked"/></InfoBar.ActionButton>
    </InfoBar>
   </StackPanel>
  </ScrollViewer>

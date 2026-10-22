@@ -3,13 +3,18 @@
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Loaded="OnLoaded">
  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
   <StackPanel Padding="24" Spacing="12">
-   <TextBlock Text="DTS Headphone:X" Style="{ThemeResource TitleTextBlockStyle}"/>
+   <TextBlock Text="DTS Headphone:X" Style="{ThemeResource TitleTextBlockStyle}" TextWrapping="Wrap"/>
    <ComboBox x:Name="Devices" Header="Playback device" HorizontalAlignment="Stretch" SelectionChanged="DeviceChanged" AutomationProperties.AutomationId="DtsDevice"/>
    <Grid ColumnSpacing="8">
     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
     <TextBox x:Name="SofaPath" Header="SOFA file" PlaceholderText="Select or paste a file path" TextChanged="PathChanged" AutomationProperties.AutomationId="DtsSofaPath"/>
     <Button x:Name="Browse" AutomationProperties.AutomationId="DtsBrowse" Grid.Column="1" Content="Browse..." VerticalAlignment="Bottom" Click="BrowseClicked"/>
    </Grid>
+   <ComboBox x:Name="Interpolation" Header="Spatial interpolation" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="InterpolationChanged" AutomationProperties.AutomationId="DtsInterpolation">
+    <ComboBoxItem Content="Time-aligned" Tag="time-aligned"/>
+    <ComboBoxItem Content="Linear" Tag="linear"/>
+    <ToolTipService.ToolTip>Time-aligned interpolation reduces cancellation between neighboring responses while preserving interpolated arrival times and complete tails. Linear blends the original responses directly.</ToolTipService.ToolTip>
+   </ComboBox>
    <Expander x:Name="DetailsPanel" Header="Conversion details" Visibility="Collapsed" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" AutomationProperties.AutomationId="DtsDetails">
     <TextBlock x:Name="Details" TextWrapping="Wrap" IsTextSelectionEnabled="True" AutomationProperties.AutomationId="DtsDetailsText"/>
    </Expander>
@@ -18,7 +23,7 @@
    </Button>
    <TextBlock x:Name="Status" TextWrapping="Wrap" AutomationProperties.AutomationId="DtsStatus"/>
    <InfoBar x:Name="Message" IsOpen="False" IsClosable="True" AutomationProperties.AutomationId="DtsMessage">
-    <InfoBar.ActionButton><Button x:Name="Allow" AutomationProperties.AutomationId="DtsAllow" Content="Allow anyways" Visibility="Collapsed" Click="AllowClicked"/></InfoBar.ActionButton>
+    <InfoBar.ActionButton><Button x:Name="Allow" AutomationProperties.AutomationId="DtsAllow" Content="Allow anyway" Visibility="Collapsed" Click="AllowClicked"/></InfoBar.ActionButton>
    </InfoBar>
    <StackPanel Orientation="Horizontal" Spacing="8">
     <Button x:Name="Enable" AutomationProperties.AutomationId="DtsEnable" Content="Enable DTS" Click="EnableClicked">
@@ -29,6 +34,8 @@
     <ComboBoxItem Content="Original" Tag="Original"/>
     <ComboBoxItem Content="Balanced" Tag="Balanced"/>
     <ComboBoxItem Content="Spacious" Tag="Spacious"/>
+    <ComboBoxItem Content="Spacious 200% (experimental)" Tag="Spacious200"/>
+    <ComboBoxItem Content="Spacious 400% (experimental)" Tag="Spacious400"/>
     <ComboBoxItem Content="Off" Tag="Off"/>
     <ToolTipService.ToolTip>Changes only the native room sends. Original restores room sends saved before the first DTS change.</ToolTipService.ToolTip>
    </ComboBox>

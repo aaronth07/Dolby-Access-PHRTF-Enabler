@@ -14,7 +14,7 @@ import struct
 from netCDF4 import Dataset
 import numpy as np
 from scipy.spatial import ConvexHull, QhullError
-from scipy.signal import resample_poly
+from scipy.signal import resample_poly, find_peaks, fftconvolve
 
 from inspect_dts_spac import inspect
 
@@ -114,7 +114,57 @@ def interpolation(points,targets):
     return output
 
 
-def convert(sofa_path,template_path,gain=1.0,room='off',room_template_path=None):
+def arrival_sample(response):
+    """First significant direct peak; never minimum-phase a room response."""
+    magnitude=np.abs(response)
+    peak=float(magnitude.max())
+    if peak==0:return 0.0
+    candidates,_=find_peaks(magnitude,height=peak*.1)
+    if magnitude[0]>=peak*.1:index=0
+    elif len(candidates):index=int(candidates[0])
+    else:index=int(np.argmax(magnitude))
+    fraction=0.0
+    if 0<index<len(response)-1:
+        a,b,c=magnitude[index-1:index+2];denominator=a-2*b+c
+        if denominator<0:fraction=float(np.clip(.5*(a-c)/denominator,-.5,.5))
+    return index+fraction
+
+
+def alignment_plan(responses,mappings,method):
+    if method not in ('linear','time-aligned'):raise ValueError('Unknown spatial interpolation method')
+    plans=[];minimum=0.;maximum=0.;fallbacks=0
+    arrivals={index:[arrival_sample(ear) for ear in response] for index,response in responses.items()}
+    for indices,weights in mappings:
+        shifts=np.zeros((len(indices),2))
+        if method=='time-aligned' and len(indices)>1:
+            times=np.asarray([arrivals[index] for index in indices])
+            # A >2 ms change between adjacent directions is usually an ambiguous
+            # direct/reflection peak. Preserve that blend instead of guessing.
+            if np.max(np.ptp(times,axis=0))>96:fallbacks+=1
+            elif np.max(np.ptp(times,axis=0))>=.1:
+                shifts=np.asarray(weights)@times-times
+        minimum=min(minimum,float(shifts.min()));maximum=max(maximum,float(shifts.max()));plans.append(shifts)
+    guard=32 if minimum<0 or maximum>0 else 0
+    common=int(math.ceil(-minimum))+guard
+    extension=common+int(math.ceil(maximum))+guard
+    return plans,common,extension,fallbacks
+
+
+def shifted_response(response,shift,common,length):
+    output=np.zeros(length)
+    integer=int(math.floor(shift));fraction=shift-integer
+    if fraction<1e-10 or 1-fraction<1e-10:
+        start=common+int(round(shift));filtered=response
+    else:
+        n=np.arange(-32,33,dtype=float)
+        kernel=np.sinc(n-fraction)*np.kaiser(65,8.6);kernel/=kernel.sum()
+        filtered=fftconvolve(response,kernel);start=common+integer-32
+    if start<0 or start+len(filtered)>length:raise ValueError('Fractional-delay padding does not contain the complete response')
+    output[start:start+len(filtered)]=filtered
+    return output
+
+
+def convert(sofa_path,template_path,gain=1.0,room='off',room_template_path=None,interpolation_method='linear'):
     if not math.isfinite(gain) or gain<=0:raise ValueError('Gain must be finite and positive')
     if room not in ('off','preserve'):raise ValueError('Room must be off or preserve')
     if room_template_path is not None and room!='preserve':raise ValueError('A room template requires --room preserve')
@@ -175,9 +225,7 @@ def convert(sofa_path,template_path,gain=1.0,room='off',room_template_path=None)
         source_length=int(variable.shape[2]+delay.max())
         response_length=max(table['samples'],(source_length*48000+source_rate-1)//source_rate)
         if response_length>65536:raise ValueError('Converted response exceeds supported length')
-        node_filters=np.zeros((count,2,response_length),dtype=np.float64)
         legacy=np.frombuffer(template,dtype='<f4',count=count*2*table['samples'],offset=132).reshape(count,2,table['samples'])
-        node_filters[~nonzero,:,:table['samples']]=legacy[~nonzero]
         weights=interpolation(points,targets)
         divisor=math.gcd(48000,source_rate);resample_up,resample_down=48000//divisor,source_rate//divisor
         used=sorted(set(index for indices,_ in weights for index in indices));responses={}
@@ -188,12 +236,18 @@ def convert(sofa_path,template_path,gain=1.0,room='off',room_template_path=None)
                 start=int(delay[index,ear]);delayed[ear,start:start+response.shape[1]]=response[ear]
             if source_rate!=48000:delayed=resample_poly(delayed,resample_up,resample_down,axis=-1)
             responses[index]=delayed
+        plans,alignment_delay,extension,alignment_fallbacks=alignment_plan(responses,weights,interpolation_method)
+        response_length+=extension
+        if response_length>65536:raise ValueError('Time alignment exceeds the native FIR length limit; select Linear interpolation')
+        node_filters=np.zeros((count,2,response_length),dtype=np.float64)
+        node_filters[~nonzero,:,alignment_delay:alignment_delay+table['samples']]=legacy[~nonzero]
         mappings=[]
-        for node,(indices,coefficients) in zip(np.flatnonzero(nonzero),weights):
-            for index,weight in zip(indices,coefficients):
-                response=responses[index];node_filters[node,:,:response.shape[1]]+=response*(weight*gain)
+        for node,(indices,coefficients),shifts in zip(np.flatnonzero(nonzero),weights,plans):
+            for row,(index,weight) in enumerate(zip(indices,coefficients)):
+                response=responses[index]
+                for ear in range(2):node_filters[node,ear]+=shifted_response(response[ear],shifts[row,ear],alignment_delay,response_length)*(weight*gain)
             mappings.append({'native_node':int(node),'native_position':native[node].tolist(),
-                             'source_indices':indices,'weights':coefficients})
+                             'source_indices':indices,'weights':coefficients,'alignment_shifts_native_samples':shifts.tolist()})
     if file_sha(sofa_path)!=sofa_hash or template_path.read_bytes()!=template:raise ValueError('Input changed during conversion')
     if not np.isfinite(node_filters).all() or np.max(np.abs(node_filters))>np.finfo(np.float32).max:
         raise ValueError('Converted FIR values exceed float32 range')
@@ -233,7 +287,8 @@ def convert(sofa_path,template_path,gain=1.0,room='off',room_template_path=None)
             'room_template_sha256':hashlib.sha256(room_template).hexdigest() if room=='preserve' else None,
             'all_auxiliary_vectors_zeroed':room=='off','verified_room_send_float_count':count*2,
             'additional_auxiliary_semantics_verified':False,
-            'interpolation_method':'One set of ray-barycentric weights for both time-domain ear responses; no ear alignment.',
+            'interpolation_method':interpolation_method,'added_interpolation_delay_native_samples':alignment_delay,
+            'alignment_fallback_count':alignment_fallbacks,'fractional_delay_filter':'65-tap Kaiser-windowed sinc, beta 8.6' if alignment_delay else None,
             'scope':'Offline conversion; native initialization/use and held-out native directional error are unverified.'}
     return output,report
 
@@ -244,10 +299,11 @@ def main():
     parser.add_argument('--output',type=Path,required=True);parser.add_argument('--gain',type=float,default=1.0)
     parser.add_argument('--room',choices=('off','preserve'),default='off',help='Preserve the template recursive room response or mute its sends')
     parser.add_argument('--room-template',type=Path,help='Optional matching native carrier supplying room sends')
+    parser.add_argument('--interpolation',choices=('linear','time-aligned'),default='linear')
     args=parser.parse_args()
     try:
         if args.output.exists():raise ValueError('Output directory already exists')
-        output,report=convert(args.sofa,args.template,args.gain,args.room,args.room_template)
+        output,report=convert(args.sofa,args.template,args.gain,args.room,args.room_template,args.interpolation)
         args.output.mkdir(parents=True)
         (args.output/'runtime_SPAC.bin').write_bytes(output)
         (args.output/'manifest.json').write_text(json.dumps(report,indent=2,allow_nan=False)+'\n',encoding='utf-8')
