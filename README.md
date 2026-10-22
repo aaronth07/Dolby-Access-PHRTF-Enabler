@@ -2,7 +2,9 @@
 
 Load personalized headphone profiles into **Dolby Atmos for Headphones** or **DTS Headphone:X** on Windows, with native room controls and automatic backups.
 
-Version **2.0** adds DTS personalization and room presets, plus Dolby 200% and 400% room/direct modes.
+Version **2.2.0** fixes Dolby room controls when no personalized Atmos profile is applied. Built-in tuning is read from the installed Dolby Access package; a personal HRTF is not required. The window now resizes and fits smaller displays, and EQ import controls remain disabled during operations.
+
+Compared with the previously published 2.0 release, this version also includes native Atmos/DTS headphone EQ, saved parametric EQ profiles, time-aligned SOFA interpolation, DTS Spacious 200%/400%, and optional gain correction for Dolby 200%/400%. [Release notes](docs/release-notes.md) · [Regression requirements](regression.md).
 
 ![Dolby PHRTF controls](docs/images/app-dolby.png)
 
@@ -22,19 +24,25 @@ The toggle applies or restores the profile. Selecting a different valid file whi
 
 In **Dolby room**, select On, Off, 50% feedback, 200% room/direct, 400% room/direct, or Custom. **Room output level** scales the room output taps from 0-150% of their original value, subject to the native coefficient range. **Feedback** scales the recursive feedback from 0-100%, independently of output level. Feedback is not a calibrated decay-time setting. PHRTF apply defaults room processing On unless a previous app preference exists. Ordinary room changes preserve directional coefficients and reapply PHRTF if the saved baseline replaces it.
 
-The experimental **200% / 400% room/direct** modes halve or quarter directional fields (-6.02 / -12.04 dB), while retaining saved room taps and feedback. Overall makeup gain remains 0 dB. Apply requires confirmation. Repeated Apply and switching modes use the saved full-gain reference; On, Restore, and reset remove the attenuation. Load a full-gain PHRTF containing room output first. These modes were verified by the user; no new acoustic capture is bundled. Custom 150% scales room taps alone.
+The experimental **200% / 400% room/direct** modes halve or quarter directional fields (-6.02 / -12.04 dB), while retaining saved room taps and feedback. **Gain correction** optionally adds +6 or +12 dB through native Atmos EQ, combined with the uploaded EQ. It defaults Off; the experimental confirmation includes the clipping warning. Apply requires confirmation. Repeated Apply and switching modes use the saved full-gain reference; On, Restore, and reset remove the attenuation. Both built-in Dolby tuning and personalized profiles are supported; the installed room must contain room output. The retained beta.1 native virtual-endpoint recordings confirm the corrected direct level and increased room return; see the measurement status. Custom 150% scales room taps alone.
 
 ## DTS Headphone:X
 
 1. Select the playback device and binaural SOFA file, then **Verify and convert**.
-2. Enable DTS if offered. Choose **Original**, **Balanced**, **Spacious**, or **Off** under **Room preset**.
+2. Enable DTS if offered. Choose **Original**, **Balanced**, **Spacious**, **Spacious 200%**, **Spacious 400%**, or **Off** under **Room preset**.
 3. Click **Apply profile**, or turn **Custom DTS profile** On.
 
-Room changes preserve personalized FIRs and the panner, and write the combined profile and transaction notification together. Original restores room sends saved before the first DTS change. Balanced/Spacious are extracted from the installed DTS Sound Unbound package; vendor preset binaries and decoding keys are not bundled. The verified mapping is for Sound Unbound 2026.3.31.0 and the compatible 23-node Windows headphone grid. If mapping is unavailable, an explicit override retains Original room sends instead of guessing a named preset.
+Room changes preserve personalized FIRs and the panner, and write the combined profile and transaction notification together. Original restores room sends saved before the first DTS change. Balanced/Spacious are extracted from the installed DTS Sound Unbound package; vendor preset binaries and decoding keys are not bundled. The verified mapping is for Sound Unbound 2026.3.31.0 and the compatible 23-node Windows headphone grid. Spacious 200% and 400% multiply the actual native Spacious sends by two and four without changing feedback, FIRs, or the panner. Both require an experimental clipping confirmation. If mapping is unavailable, an explicit override retains Original room sends instead of guessing a named preset.
 
-Applying a SOFA disables the endpoint's DTS headphone-correction filters. The app warns when it detects these filters active. The removed EQ dropdown did not represent the vendor app's EQ profile selector. Off or **Restore** returns the saved runtime profile, device EQ, and counter. Changing a vendor EQ/profile can replace the injected configuration, so reapply afterward.
+Applying a SOFA defaults to disabling the endpoint's DTS headphone-correction filters. If you have selected an uploaded profile in **Headphone EQ**, later SOFA and room changes retain it. The app warns when it detects vendor correction filters active. Off or **Restore** returns the saved runtime profile, device EQ, and counter. Changing a vendor EQ/profile can replace the injected configuration, so reapply afterward.
 
-The converter accepts binaural SimpleFreeFieldHRIR and GeneralFIR with a full-sphere grid, one source distance, and integer sample delays. It resamples to 48 kHz using one set of interpolation weights for both ears. Conversion details report dimensions, sample rate, delay, target grid, and native format-validation result. Error details explain rejected inputs. Status reports the selected provider and custom profile state, rather than claiming to verify installation.
+The converter accepts binaural SimpleFreeFieldHRIR and GeneralFIR with a full-sphere grid, one source distance, and integer sample delays. It resamples to 48 kHz and offers **Time-aligned** or **Linear** spatial interpolation. Time-aligned blends align neighboring direct arrivals, interpolate their arrival times separately for each ear with shared directional weights, and preserve full tails. Exact measured nodes retain their original response with one common delay. Ambiguous arrival differences over 2 ms keep the linear blend. Linear retains the previous conversion behavior. Conversion details report dimensions, sample rate, delay, target grid, and native format-validation result. Error details explain rejected inputs. Status reports the selected provider and custom profile state, rather than claiming to verify installation.
+
+## Headphone EQ preview
+
+Import an Equalizer APO parametric text file in **Headphone EQ**, select the saved profile and playback device, then **Apply EQ**. The graph includes the file's preamp gain. **EQ off** removes the uploaded EQ. Dolby room gain correction, if enabled, remains active. Resetting DTS restores the original device EQ; Dolby reset restores room settings and removes room gain correction while preserving the separate uploaded EQ. Saved profiles remain available separately from device backups.
+
+The importer supports preamp, peaking, shelving, pass, notch, all-pass and band-pass filters, including Q, octave bandwidth and shelf slope forms. The current native route runs at 48 kHz. Unsupported routing directives such as Include and Channel produce an import error. The app does not edit Equalizer APO's configuration. DTS applies the exact supported biquad cascade within native processing, including room output. Atmos uses an adaptive 20-band native magnitude approximation with 1/16 dB target resolution; approximation error is reported before applying difficult curves. All-pass phase cannot be represented by Atmos EQ and is rejected. Sonic research is kept on a separate development branch.
 
 ## Persistence, reset, and overrides
 
@@ -65,6 +73,10 @@ The room comparison changes only the first native stereo auxiliary vectors. Pers
 ![Dolby Atmos Personalized vs Generic Room Settings](https://github.com/user-attachments/assets/8de2d624-e5b2-477b-84c8-c2f69b9a52e7)
 
 
+![Native Atmos EQ and gain correction](docs/images/native-atmos-eq-room.png)
+
+![Native DTS Spacious overdrive](docs/images/native-dts-overdrive.png)
+
 ## Documentation and build
 
 - [User guide](docs/user-guide.md)
@@ -77,4 +89,8 @@ The application is C# / WinUI 3, unpackaged and self-contained. Build with .NET 
 
 Release packages exclude personal profiles, raw captures, registry exports, endpoint identifiers, account data, and vendor preset/DLL files. Dolby and DTS names identify third-party products; this is an independent utility.
 
-When moving from the separate 200% / 400% experimental build, use Restore there before applying a profile in version 2.0. Production and experimental builds keep separate restore records but share device audio settings.
+When moving from the separate 200% / 400% experimental build, use Restore there before applying a profile in version 2.2.0. Production and experimental builds keep separate restore records but share device audio settings.
+
+### Missing or unfamiliar Dolby initialization
+
+Atmos can be active without a saved personalized initialization property. Select the profile and turn Personalized profile On; **Allow anyway** initializes the selected device after saving its original state. Off restores that state, including an originally absent property. Unfamiliar initialization framing can also be replaced by explicit override; the original bytes remain in the automatic backup. The active Atmos status is reported separately from profile compatibility.

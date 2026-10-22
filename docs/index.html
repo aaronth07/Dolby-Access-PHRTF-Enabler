@@ -3,7 +3,7 @@
 <head>
  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
  <meta name="description" content="Personalized headphone profiles for Dolby Atmos and DTS Headphone:X, with native room controls on Windows.">
- <title>Dolby Access PHRTF Enabler — version 2.0</title>
+ <title>Dolby Access PHRTF Enabler — 2.2.0</title>
  <link rel="stylesheet" href="site.css">
 </head>
 <body>
@@ -12,16 +12,17 @@
  <main id="main">
   <section class="intro">
    <h1>Personalized headphone rendering.<br>With room controls.</h1>
-   <p class="lead">Load a personalized Dolby profile or a SOFA HRTF into Windows Spatial Sound. Keep control of the native room response, with automatic backups and separate restore paths.</p>
-   <p>Version 2.0 | Windows x64</p>
+   <p class="lead">Load a personalized Dolby profile or a SOFA HRTF into Windows Spatial Sound. Apply saved headphone EQ and adjust the native room response, with automatic backups and separate restore paths.</p>
+   <p>Version 2.2.0 | Windows x64</p>
    <a class="button" href="#candidate">Download</a>
   </section>
   <section id="use" class="reading">
    <h2>From profile to playback</h2>
    <p>Install and activate Dolby Atmos for Headphones or DTS Sound Unbound. Choose the playback device in the app, then use the corresponding tab.</p>
    <div class="instructions"><div><h3>Dolby Atmos</h3><ol><li>Close Dolby Access and select your personalized headphone profile.</li><li>Enable Atmos if the app offers it, then turn <strong>Personalized profile</strong> On.</li><li>Adjust room output level and feedback in <strong>Dolby room</strong>. Your last setting follows subsequent profile imports.</li></ol></div><div><h3>DTS Headphone:X</h3><ol><li>Select a binaural SOFA file, then <strong>Verify and convert</strong>.</li><li>Enable DTS if needed, choose a room preset, and <strong>Apply profile</strong>.</li><li>Switch between <strong>Balanced</strong>, <strong>Spacious</strong>, <strong>Original</strong>, and <strong>Off</strong> while keeping the personalized FIRs.</li></ol></div></div>
+   <p>Application screenshots below show the previously published interface; the current UI was tested separately on an isolated desktop.</p>
    <figure class="app-images"><img src="images/app-dolby-room.png" width="546" height="713" alt="Dolby room tab with separate output level and feedback controls." loading="lazy"><img src="images/app-dts.png" width="546" height="713" alt="DTS tab with Original room preset and the Enable DTS action when inactive." loading="lazy"></figure>
-   <p>DTS headphone-correction filters are disabled when applying a SOFA. If they are detected beforehand, the app shows a warning. Restore returns the saved runtime profile and EQ.</p>
+   <p>Import Equalizer APO parametric text in <strong>Headphone EQ</strong> and use <strong>Apply EQ</strong> for Atmos or DTS. DTS uses native biquads; Atmos approximates magnitude with 20 native bands. SOFA and room changes retain a selected uploaded EQ. Restore returns the saved DTS runtime profile and EQ.</p>
    <details><summary>Stored settings, restoration, and overrides</summary><p>Settings remain on the selected device after the app closes. Audio reinitialization, device recreation, or vendor profile changes can require reapplying. Off/Restore returns the original saved profile. Dolby and DTS resets are separate and show a confirmation before clearing their saved configuration. Version and external-state warnings retain an explicit override; malformed data is rejected.</p></details>
   </section>
   <section id="measurements">
@@ -30,19 +31,22 @@
    <figure><a href="images/dolby-personalization.png"><img src="images/dolby-personalization.png" width="2160" height="1440" alt="Dolby personalization Off and On: matched frequency response and impulse-response energy plots." loading="lazy"></a><figcaption><strong>Dolby personalization Off / On.</strong> A recorded comparison using one supplied profile. It demonstrates a change in renderer output; it does not establish personal fit or listening quality.</figcaption></figure>
    <figure><a href="images/dts-personalization.png"><img src="images/dts-personalization.png" width="2160" height="1440" alt="DTS personalization Off and On: matched frequency response and impulse-response energy plots." loading="lazy"></a><figcaption><strong>DTS personalization Off / On.</strong> This earlier comparison used the personalized carrier with room sends muted. Version 2.0 now restores room sends by default and offers explicit room selection.</figcaption></figure>
    <figure><a href="images/dts-room-presets.png"><img src="images/dts-room-presets.png" width="2160" height="1440" alt="Balanced and Spacious room presets with identical personalized FIRs. Spacious increases the later recorded response." loading="lazy"></a><figcaption><strong>DTS Balanced / Spacious, personalized FIRs held constant.</strong> Only the native room sends differ. The research comparison found approximately 9.8 dB more energy from 20–250 ms with Spacious across the tested directions. The source report records exact runtime/counter restoration.</figcaption></figure>
+   <figure><a href="images/native-atmos-eq-room.png"><img src="images/native-atmos-eq-room.png" width="2520" height="900" alt="Native Atmos EQ and corrected 200 and 400 percent room modes, measured frequency response and decay." loading="lazy"></a><figcaption>Atmos native EQ and optional room gain correction. Direct energy remains within 0.06 dB; late room energy rises about 6 or 12 dB.</figcaption></figure>
+   <figure><a href="images/native-dts-overdrive.png"><img src="images/native-dts-overdrive.png" width="2520" height="900" alt="DTS Spacious, Spacious 200 percent, and Spacious 400 percent native response and decay." loading="lazy"></a><figcaption>DTS native Spacious overdrive with the same FIRs and EQ. Direct energy stays within 0.001 dB; late room energy rises about 6 or 12 dB.</figcaption></figure>
    <p><a href="graph-provenance.json">Graph processing and provenance</a> · Select any graph for its full-resolution image.</p>
   </section>
   <section id="technical" class="reading">
    <h2>What the controls change</h2>
    <table><thead><tr><th scope="col">Control</th><th scope="col">Native configuration</th></tr></thead><tbody><tr><th scope="row">Dolby room output level</th><td>Scales room output taps, with signed coefficient overflow checks. Up to 150% where the profile allows it.</td></tr><tr><th scope="row">Dolby feedback</th><td>Scales recursive feedback independently of room output level, from 0–100%.</td></tr><tr><th scope="row">DTS room preset</th><td>Copies only the first stereo auxiliary vectors from a compatible installed preset. Personalized FIRs, second auxiliary vectors, room parameters, and panner remain intact.</td></tr><tr><th scope="row">DTS SOFA apply</th><td>Writes the combined runtime profile, disabled headphone EQ, and transaction counter, then verifies readback.</td></tr></tbody></table>
+   <p>This release includes Time-aligned SOFA interpolation, native DTS Spacious 200%/400%, and optional +6/+12 dB Dolby room gain correction. Experimental confirmations include clipping guidance. The current process cannot register a Sonic renderer in the system audio host; Sonic research remains separate from this release. <a href="native-renderer-eq-status.md">Implementation and validation limits</a>.</p>
    <p>Balanced/Spacious extraction is mapped to DTS Sound Unbound 2026.3.31.0 and checks the installed binary and asset hashes. A version mismatch offers an override that retains the original room sends. Vendor preset binaries and decoding keys are not bundled.</p>
-   <details><summary>Compatibility and current limits</summary><p>Dolby coefficient version 1.1.0 and one 23-node DTS grid have been tested. SOFA conversion supports binaural SimpleFreeFieldHRIR and GeneralFIR, a full-sphere grid, one source distance, and integer sample delays. Other configurations may require an override or be unsupported. Native readback tests cover one Windows system.</p><p>Dolby 200% and 400% room/direct modes halve or quarter directional fields, retaining saved room taps and feedback. Overall makeup gain is 0 dB. On or Restore returns full directional gain. Custom 150% scales room taps alone.</p></details>
+   <details><summary>Compatibility and current limits</summary><p>Dolby coefficient version 1.1.0 and one 23-node DTS grid have been tested. SOFA conversion supports binaural SimpleFreeFieldHRIR and GeneralFIR, a full-sphere grid, one source distance, and integer sample delays. Other configurations may require an override or be unsupported. Native readback tests cover one Windows system.</p><p>Dolby 200% and 400% room/direct modes halve or quarter directional fields, retaining saved room taps and feedback. Optional gain correction adds +6 or +12 dB through Atmos native EQ and combines with uploaded EQ. On or Restore returns full directional gain. Custom 150% scales room taps alone.</p></details>
    <p><a href="technical-report.md">Technical report</a> · <a href="user-guide.md">User guide</a> · <a href="release-notes.md">Release notes</a></p>
   </section>
   <section id="candidate" class="reading">
-   <h2>Download version 2.0</h2>
-   <p>The release contains a portable EXE, folder ZIP, checksums, and source code.</p>
-   <p><a href="https://github.com/aaronth07/Dolby-Access-PHRTF-Enabler/releases/tag/v2.0.0">Download the Windows x64 release</a>. The portable EXE includes the application runtimes and SOFA converter.</p>
+   <h2>Download</h2>
+   <p>Version 2.2.0 fixes stock Dolby room controls without a personalized profile and includes the native EQ, interpolation and room improvements from beta.1.</p>
+   <p><a href="https://github.com/aaronth07/Dolby-Access-PHRTF-Enabler/releases/tag/v2.2.0">Download the Windows x64 release</a>. The portable EXE includes the application runtimes and SOFA converter.</p>
    <p><a href="release-notes.md">Review the changes and validation</a></p>
   </section>
  </main>

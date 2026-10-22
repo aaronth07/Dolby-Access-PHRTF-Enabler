@@ -27,7 +27,7 @@ public sealed partial class MainWindow : Window
         Allow.IsEnabled = EnableAtmos.IsEnabled = !busy;
         Devices.IsEnabled = Browse.IsEnabled = ProfilePath.IsEnabled = !busy;
         Reset.IsEnabled = !busy && Selected != null;
-        Personalized.IsEnabled = !busy && status != null && (status.Personalized || profile != null);
+        Personalized.IsEnabled = !busy && Selected != null && (status?.Personalized == true || status?.CanRestore == true || profile != null);
         Progress.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
     }
     async Task Run(Func<Task> action, string failure = "The operation could not be completed.")
@@ -61,7 +61,7 @@ public sealed partial class MainWindow : Window
             if (Selected == null) { AtmosStatus.Text = "No playback device available."; return; }
             var device = ProfileService.Resolve(Selected);
             try { status = await Task.Run(() => ProfileService.Inspect(device)); AtmosStatus.Text = status.Message; Personalized.IsOn = status.Personalized; EnableAtmos.Visibility = status.Atmos ? Visibility.Collapsed : Visibility.Visible; }
-            catch { EnableAtmos.Visibility = Visibility.Collapsed; Personalized.IsOn = false; AtmosStatus.Text = "No supported Dolby profile on this device."; throw; }
+            catch (Exception error) { Personalized.IsOn = false; AtmosStatus.Text = error is ProfileOperationException ? error.Message : "The device configuration could not be read."; EnableAtmos.Visibility = Visibility.Visible; throw; }
         }
         finally { updating = false; UpdateControls(); }
     }
@@ -126,7 +126,7 @@ public sealed partial class MainWindow : Window
             await Task.Run(() => ProfileService.Switch(device, selectedProfile, enabled, force: force));
             await Refresh(); Notify(enabled ? "Personalized profile on." : "Saved profile restored.");
         } catch (ProfileWarningException e) {
-            await Refresh();
+            try { await Refresh(); } catch { }
             Warn(e.Message + " Allow to overwrite it and restart Atmos.", () => Apply(device, selectedProfile, enabled, true));
         } catch { await Refresh(); throw; }
     }

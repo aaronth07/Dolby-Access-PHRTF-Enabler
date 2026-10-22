@@ -245,10 +245,11 @@ internal static class FeatureTests
             _ = DolbyRoomService.Change(d, "DoubleRoom"); ProfileService.Reset(d, true);
             using (var expStore = new SpatialStore(d, ProfileService.Context, false, true)) Assert(expStore.Blob("1b4dab55-b1fb-4d8c-8317-f2d4a96efbb8").SequenceEqual(doubleReference), "Reset removes experimental directional attenuation");
             dtsAttempted = true; DtsProfileService.Enable(d);
+            uint dtsBaselineCounter;using(var store=new SpatialStore(d,DtsProfileService.Context,false,false))dtsBaselineCounter=store.Counter(DtsProfileService.Counter);
             _ = DtsProfileService.Change(d, conversion.Path, true);
             using (var store = new SpatialStore(d, DtsProfileService.Context, false, false)) Assert(store.Blob(DtsProfileService.Runtime).SequenceEqual(bytes), "Native DTS custom profile exact readback");
             using (var store = new SpatialStore(d, DtsProfileService.Context, false, false)) Assert(store.Blob(DtsProfileService.Device).SequenceEqual(DtsProfileService.EqOff(initialDevice)), "SOFA apply disables device EQ by default");
-            foreach (string roomMode in new[] { "Balanced", "Spacious", "Off", "Original" }) {
+            foreach (string roomMode in new[] { "Balanced", "Spacious", "Spacious200", "Spacious400", "Off", "Original" }) {
                 _ = DtsProfileService.ChangeRoom(d, roomMode);
                 var expectedRoom = DtsRoomService.Apply(bytes, initialDts, roomMode, false, out _);
                 using var roomStore = new SpatialStore(d, DtsProfileService.Context, false, false);
@@ -259,19 +260,19 @@ internal static class FeatureTests
             using (var store = new SpatialStore(d, DtsProfileService.Context, false, false)) Assert(store.Blob(DtsProfileService.Device).SequenceEqual(initialDevice) && store.Blob(DtsProfileService.Runtime).SequenceEqual(bytes), "Restoring original EQ preserves the SOFA-derived profile");
             _ = DtsProfileService.ChangeEq(d, "Off");
             using (var store = new SpatialStore(d, DtsProfileService.Context, false, false)) Assert(store.Blob(DtsProfileService.Device).SequenceEqual(DtsProfileService.EqOff(initialDevice)) && store.Blob(DtsProfileService.Runtime).SequenceEqual(bytes), "EQ Off preserves the SOFA-derived profile");
-            using (var store = new SpatialStore(d, DtsProfileService.Context, true, false)) store.Write(DtsProfileService.Counter, unchecked(initialCounter + 2));
+            using (var store = new SpatialStore(d, DtsProfileService.Context, true, false)) store.Write(DtsProfileService.Counter, unchecked(dtsBaselineCounter + 2));
             bool counterWarned = false;
             try { _ = DtsProfileService.Change(d, null, false); } catch (ProfileWarningException) { counterWarned = true; }
             Assert(counterWarned, "External DTS counter requests an override before restoration");
             _ = DtsProfileService.Change(d, null, false, true);
-            using (var store = new SpatialStore(d, DtsProfileService.Context, false, false)) Assert(store.Counter(DtsProfileService.Counter) == initialCounter && store.Blob(DtsProfileService.Runtime).SequenceEqual(initialDts), "Explicit DTS override restores runtime and counter");
+            using (var store = new SpatialStore(d, DtsProfileService.Context, false, false)) Assert(store.Counter(DtsProfileService.Counter) == dtsBaselineCounter && store.Blob(DtsProfileService.Runtime).SequenceEqual(initialDts), "Explicit DTS override restores runtime and counter");
             _ = DtsProfileService.Change(d, conversion.Path, true);
             DtsProfileService.AfterWriteTest = () => throw new IOException("Injected DTS failure");
             Reject(() => DtsProfileService.Change(d, null, false), "DTS write failure reaches rollback");
             DtsProfileService.AfterWriteTest = null;
             using (var store = new SpatialStore(d, DtsProfileService.Context, false, false)) Assert(store.Blob(DtsProfileService.Runtime).SequenceEqual(bytes), "DTS failure restores custom profile");
             _ = DtsProfileService.Change(d, null, false);
-            using (var store = new SpatialStore(d, DtsProfileService.Context, false, false)) Assert(store.Blob(DtsProfileService.Runtime).SequenceEqual(initialDts) && store.Counter(DtsProfileService.Counter) == initialCounter && store.Blob(DtsProfileService.Device).SequenceEqual(initialDevice), "DTS restore retains original runtime, counter and device data");
+            using (var store = new SpatialStore(d, DtsProfileService.Context, false, false)) Assert(store.Blob(DtsProfileService.Runtime).SequenceEqual(initialDts) && store.Counter(DtsProfileService.Counter) == dtsBaselineCounter && store.Blob(DtsProfileService.Device).SequenceEqual(initialDevice), "DTS restore retains original runtime, counter and device data");
             string dtsState = Path.Combine(SpatialFiles.Folder(d, "dts"), "original.json");
             File.WriteAllText(dtsState, "invalid DTS backup");
             bool dtsBackupWarned = false;
@@ -280,7 +281,7 @@ internal static class FeatureTests
             _ = DtsProfileService.Change(d, conversion.Path, true, true);
             _ = DtsProfileService.Change(d, null, false);
             Assert(Directory.GetFiles(Path.GetDirectoryName(dtsState)!, "original.json.invalid.*").Any(p => File.ReadAllText(p) == "invalid DTS backup"), "DTS baseline override archives the invalid backup");
-            using (var store = new SpatialStore(d, DtsProfileService.Context, false, false)) Assert(store.Blob(DtsProfileService.Runtime).SequenceEqual(initialDts) && store.Counter(DtsProfileService.Counter) == initialCounter, "DTS baseline recovery restores original native bytes and counter");
+            using (var store = new SpatialStore(d, DtsProfileService.Context, false, false)) Assert(store.Blob(DtsProfileService.Runtime).SequenceEqual(initialDts) && store.Counter(DtsProfileService.Counter) == dtsBaselineCounter, "DTS baseline recovery restores original native bytes and counter");
             _ = DtsProfileService.Change(d, conversion.Path, true);
             DtsProfileService.AfterWriteTest = () => throw new IOException("Injected DTS reset failure");
             Reject(() => DtsProfileService.Reset(d), "DTS reset failure reaches native rollback");
@@ -289,7 +290,7 @@ internal static class FeatureTests
             var primaryStatePath = Path.Combine(SpatialFiles.Folder(d, "dts"), "..", "original.json");
             var primaryBeforeReset = File.Exists(primaryStatePath) ? File.ReadAllBytes(primaryStatePath) : null;
             DtsProfileService.Reset(d);
-            using (var store = new SpatialStore(d, DtsProfileService.Context, false, false)) Assert(store.Blob(DtsProfileService.Runtime).SequenceEqual(initialDts) && store.Counter(DtsProfileService.Counter) == initialCounter, "DTS reset restores the saved runtime and counter");
+            using (var store = new SpatialStore(d, DtsProfileService.Context, false, false)) Assert(store.Blob(DtsProfileService.Runtime).SequenceEqual(initialDts) && store.Counter(DtsProfileService.Counter) == dtsBaselineCounter, "DTS reset restores the saved runtime and counter");
             Assert(!File.Exists(conversion.Path) && !DtsProfileService.Inspect(d).Custom, "DTS reset clears conversions and custom profile state");
             Assert(primaryBeforeReset == null || File.ReadAllBytes(primaryStatePath).SequenceEqual(primaryBeforeReset), "DTS reset preserves primary Dolby configuration");
         } catch (Exception failure) { Console.Error.WriteLine("Feature failure before cleanup: " + failure); throw; } finally {

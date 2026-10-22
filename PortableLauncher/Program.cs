@@ -80,6 +80,6 @@ internal static class Program
             using var child = Process.Start(start) ?? throw new IOException("Could not launch the application.");
             return 0;
         }
-        catch (Exception error) { MessageBoxW(IntPtr.Zero, error.Message, "Dolby Access PHRTF Enabler", 0x10); return 1; }
+        catch (Exception error) { if(args.Contains("--extract-only"))Console.Error.WriteLine(error.Message);else MessageBoxW(IntPtr.Zero, error.Message, "Dolby Access PHRTF Enabler", 0x10); return 1; }
     }
 }

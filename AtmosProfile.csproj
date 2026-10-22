@@ -16,6 +16,7 @@
     <Nullable>enable</Nullable>
     <DefaultItemExcludes>$(DefaultItemExcludes);release\**;Tests\**;PortableLauncher\**</DefaultItemExcludes>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(UiQaBuild)' == 'true'"><DefineConstants>$(DefineConstants);TESTING;UI_QA</DefineConstants></PropertyGroup>
   <ItemGroup>
     <Content Include="Assets\SplashScreen.scale-200.png" />
     <Content Include="Assets\LockScreenLogo.scale-200.png" />
@@ -90,11 +91,11 @@
     <Compile Remove="PortableLauncher\**\*.cs" />
   </ItemGroup>
   <Target Name="IncludeUnpackagedXamlResources" AfterTargets="Publish">
-    <Copy SourceFiles="$(TargetDir)$(AssemblyName).pri;$(TargetDir)App.xbf;$(TargetDir)MainWindow.xbf;$(TargetDir)RoomPage.xbf;$(TargetDir)DtsPage.xbf" DestinationFolder="$(PublishDir)" />
+    <Copy SourceFiles="$(TargetDir)$(AssemblyName).pri;$(TargetDir)App.xbf;$(TargetDir)MainWindow.xbf;$(TargetDir)RoomPage.xbf;$(TargetDir)DtsPage.xbf;$(TargetDir)HeadphoneEqPage.xbf" DestinationFolder="$(PublishDir)" />
   </Target>
   <PropertyGroup>
     <AssemblyName>DolbyAccessPhrtfEnabler</AssemblyName>
-    <Version>2.0.0</Version>
+    <Version>2.2.0</Version>
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
     <PathMap>$(MSBuildProjectDirectory)=/_/src</PathMap>

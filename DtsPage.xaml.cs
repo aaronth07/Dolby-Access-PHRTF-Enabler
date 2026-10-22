@@ -8,7 +8,7 @@ public sealed partial class DtsPage : UserControl
     string? candidate, candidateDevice;
     Func<Task>? pending;
     public DtsPage() { InitializeComponent(); }
-    void Controls() { Devices.IsEnabled = SofaPath.IsEnabled = Browse.IsEnabled = Enable.IsEnabled = Allow.IsEnabled = Reset.IsEnabled = Room.IsEnabled = !busy; Convert.IsEnabled = !busy && !string.IsNullOrWhiteSpace(SofaPath.Text); Apply.IsEnabled = !busy && candidate != null; Restore.IsEnabled = !busy && Devices.SelectedItem != null; Custom.IsEnabled = !busy && (candidate != null || Custom.IsOn); Progress.Visibility = busy ? Visibility.Visible : Visibility.Collapsed; }
+    void Controls() { Devices.IsEnabled = SofaPath.IsEnabled = Browse.IsEnabled = Enable.IsEnabled = Allow.IsEnabled = Reset.IsEnabled = Room.IsEnabled = Interpolation.IsEnabled = !busy; Convert.IsEnabled = !busy && !string.IsNullOrWhiteSpace(SofaPath.Text); Apply.IsEnabled = !busy && candidate != null; Restore.IsEnabled = !busy && Devices.SelectedItem != null; Custom.IsEnabled = !busy && (candidate != null || Custom.IsOn); Progress.Visibility = busy ? Visibility.Visible : Visibility.Collapsed; }
     void Show(string text, InfoBarSeverity severity = InfoBarSeverity.Success) { pending = null; Allow.Visibility = Visibility.Collapsed; Message.Message = text; Message.Severity = severity; Message.IsOpen = true; }
     async Task Run(Func<Task> action)
     {
@@ -41,40 +41,49 @@ public sealed partial class DtsPage : UserControl
     }
     void Invalidate() { candidate = candidateDevice = null; DetailsPanel.Visibility = Visibility.Collapsed; pending = null; Allow.Visibility = Visibility.Collapsed; Controls(); }
     void PathChanged(object sender, TextChangedEventArgs e) { if (Details != null) Invalidate(); }
+    void InterpolationChanged(object sender, SelectionChangedEventArgs e) { if (Details != null) Invalidate(); }
     async void DeviceChanged(object sender, SelectionChangedEventArgs e) { Invalidate(); if (!busy) await Run(Refresh); }
     async void BrowseClicked(object sender, RoutedEventArgs e) => await Run(async () => { var window = FeatureWindow.Owner; var path = FeatureFilePicker.Pick(WinRT.Interop.WindowNative.GetWindowHandle(window), ".sofa", "Select SOFA file"); if (path != null) SofaPath.Text = path; await Task.CompletedTask; });
     async void ConvertClicked(object sender, RoutedEventArgs e) => await Run(async () => {
         if (Devices.SelectedItem is not AudioDevice selected) return;
         var d = ProfileService.Resolve(selected); string path = SofaPath.Text.Trim().Trim('"');
-        await ConvertProfile(d, path, false);
+        await ConvertProfile(d, path, false, (string)((ComboBoxItem)Interpolation.SelectedItem).Tag);
     });
-    async Task ConvertProfile(AudioDevice device, string path, bool force)
+    async Task ConvertProfile(AudioDevice device, string path, bool force, string interpolationMethod)
     {
         Invalidate();
         try {
-            var result = await Task.Run(() => DtsProfileService.Convert(device, path, force));
+            var result = await Task.Run(() => DtsProfileService.Convert(device, path, force, interpolationMethod));
             candidate = result.Path; candidateDevice = device.Id; Details.Text = result.Summary; DetailsPanel.Header = "Conversion details"; DetailsPanel.Visibility = Visibility.Visible; DetailsPanel.IsExpanded = false; Show(result.NativeValidated ? "SOFA converted. Native format validation passed." : "SOFA converted without native validation.", result.NativeValidated ? InfoBarSeverity.Success : InfoBarSeverity.Warning);
         } catch (ProfileWarningException e) {
             Message.Message = e.Message; Message.Severity = InfoBarSeverity.Warning; Message.IsOpen = true;
-            Allow.Visibility = Visibility.Visible; pending = () => ConvertProfile(device, path, true);
+            Allow.Visibility = Visibility.Visible; pending = () => ConvertProfile(device, path, true, interpolationMethod);
         }
     }
     async void EnableClicked(object sender, RoutedEventArgs e) => await Run(async () => { if (Devices.SelectedItem is AudioDevice selected) { var d = ProfileService.Resolve(selected); await Task.Run(() => DtsProfileService.Enable(d)); await Refresh(candidate == null); if (!Message.IsOpen) Show("DTS Headphone:X enabled."); } });
     string RoomMode => Room.SelectedItem is ComboBoxItem item ? (string)item.Tag : "Original";
-    async Task Change(AudioDevice d, bool enabled, bool force, string? selectedRoom = null)
+    bool ConfirmOverdrive(string mode,Func<Task> action)
+    {
+        if(mode is not("Spacious200" or "Spacious400"))return false;
+        Message.Message=$"Test Spacious {(mode=="Spacious400"?400:200)}%? The native Spacious room sends are raised by {(mode=="Spacious400"?"12.04":"6.02")} dB. Personalized FIRs and feedback stay unchanged. Higher output can clip; lower playback level before testing.";
+        Message.Severity=InfoBarSeverity.Warning;Message.IsOpen=true;Allow.Visibility=Visibility.Visible;pending=action;return true;
+    }
+    async Task Change(AudioDevice d, bool enabled, bool force, string? selectedRoom = null,bool experimentalAccepted=false)
     {
         string mode = selectedRoom ?? RoomMode;
-        try { if (enabled && d.Id != candidateDevice) throw new ProfileOperationException("Verify the SOFA file for this device."); string message = await Task.Run(() => DtsProfileService.Change(d, candidate, enabled, force, "Off", false, mode)); await Refresh(true); Show(message); }
-        catch (ProfileWarningException e) { try { await Refresh(); } catch { } Message.Message = e.Message; Message.Severity = InfoBarSeverity.Warning; Message.IsOpen = true; Allow.Visibility = Visibility.Visible; pending = () => Change(d, enabled, true, mode); }
+        if(enabled&&!experimentalAccepted&&ConfirmOverdrive(mode,()=>Change(d,enabled,force,mode,true)))return;
+        try { if (enabled && d.Id != candidateDevice) throw new ProfileOperationException("Verify the SOFA file for this device."); string message = await Task.Run(() => DtsProfileService.Change(d, candidate, enabled, force, "Selected", false, mode)); await Refresh(true); Show(message, message == DtsProfileService.EqSkippedMessage ? InfoBarSeverity.Warning : InfoBarSeverity.Success); }
+        catch (ProfileWarningException e) { try { await Refresh(); } catch { } Message.Message = e.Message; Message.Severity = InfoBarSeverity.Warning; Message.IsOpen = true; Allow.Visibility = Visibility.Visible; pending = () => Change(d, enabled, true, mode,experimentalAccepted); }
         catch { try { await Refresh(); } catch { } throw; }
     }
     async void ApplyClicked(object sender, RoutedEventArgs e) { if (Devices.SelectedItem is AudioDevice selected) await Run(() => Change(ProfileService.Resolve(selected), true, false)); }
     async void RestoreClicked(object sender, RoutedEventArgs e) { if (Devices.SelectedItem is AudioDevice selected) await Run(() => Change(ProfileService.Resolve(selected), false, false)); }
     async void Toggled(object sender, RoutedEventArgs e) { if (busy || updating || Devices.SelectedItem is not AudioDevice selected) return; bool enabled = Custom.IsOn; await Run(() => Change(ProfileService.Resolve(selected), enabled, false)); }
-    async Task ApplyRoom(AudioDevice device, string mode, bool force)
+    async Task ApplyRoom(AudioDevice device, string mode, bool force,bool experimentalAccepted=false)
     {
+        if(!experimentalAccepted&&ConfirmOverdrive(mode,()=>ApplyRoom(device,mode,force,true)))return;
         try { string message = await Task.Run(() => DtsProfileService.ChangeRoom(device, mode, force)); await Refresh(true); Show(message); }
-        catch (ProfileWarningException e) { Message.Message = e.Message; Message.Severity = InfoBarSeverity.Warning; Message.IsOpen = true; Allow.Visibility = Visibility.Visible; pending = () => ApplyRoom(device, mode, true); }
+        catch (ProfileWarningException e) { Message.Message = e.Message; Message.Severity = InfoBarSeverity.Warning; Message.IsOpen = true; Allow.Visibility = Visibility.Visible; pending = () => ApplyRoom(device, mode, true,experimentalAccepted); }
     }
     async void RoomChanged(object sender, SelectionChangedEventArgs e)
     {

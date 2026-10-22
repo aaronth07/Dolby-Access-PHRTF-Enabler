@@ -3,4 +3,4 @@
  <ItemGroup><Compile Include="../ProfileFile.cs" Link="ProfileFile.cs"/><Compile Include="../ProfileService.cs" Link="ProfileService.cs"/><Compile Include="../AudioPlatform.cs" Link="AudioPlatform.cs"/><Compile Include="../NativeInterfaces.cs" Link="NativeInterfaces.cs"/></ItemGroup>
  <ItemGroup><Compile Include="../SpatialStore.cs" Link="SpatialStore.cs"/><Compile Include="../DolbyRoomService.cs" Link="DolbyRoomService.cs"/><Compile Include="../DtsRoomService.cs" Link="DtsRoomService.cs"/><Compile Include="../DtsProfileService.cs" Link="DtsProfileService.cs"/></ItemGroup>
  <ItemGroup><Content Include="../Tools/*" Link="Tools/%(Filename)%(Extension)" CopyToOutputDirectory="Always"/></ItemGroup>
-</Project>
+<ItemGroup><Compile Include="../HeadphoneEq.cs" Link="HeadphoneEq.cs"/><Compile Include="../AtmosEqService.cs" Link="AtmosEqService.cs"/></ItemGroup><ItemGroup><Compile Include="../DolbyLegacyRoom.cs" Link="DolbyLegacyRoom.cs"/></ItemGroup></Project>

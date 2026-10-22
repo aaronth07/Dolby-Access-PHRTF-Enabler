@@ -22,6 +22,7 @@ internal sealed class DtsBackup
     public string AppliedHash { get; set; } = "";
     public bool? Enabled { get; set; }
     public string RoomMode { get; set; } = "Original";
+    public HeadphoneEqProfile? EqProfile { get; set; }
     public string AppliedDeviceHash { get; set; } = "";
     public uint AppliedCounter { get; set; }
 }
@@ -35,6 +36,7 @@ internal static class DtsProfileService
     public const string Device = "f01f13b3-a580-4fdc-9060-22049c7a2353";
     public const string Counter = "22789cc6-8567-4046-acc4-b80f43bd9298";
     public const string EncoderHash = "90e62a7f6d044b43e53413f1f0933647725838f60904de37cd4b49f3852a604c";
+    public const string EqSkippedMessage = "DTS profile updated. The requested EQ change was skipped; the previous device EQ was preserved.";
     public static string ToolRoot = AppContext.BaseDirectory;
     static string ConverterRoot => File.Exists(Path.Combine(ToolRoot, "DtsTools", "DtsSofaConverter.exe")) ? Path.Combine(ToolRoot, "DtsTools") : Path.Combine(ToolRoot, "DtsTools", "bin");
     static string StatePath(AudioDevice d) => Path.Combine(SpatialFiles.Folder(d, "dts"), "original.json");
@@ -101,7 +103,7 @@ internal static class DtsProfileService
         if (!force) throw new ProfileWarningException("This DTS version has not been verified. Allow to continue without native validation.");
         return false;
     }
-    static bool ValidateNative(byte[] bytes, bool force, bool deviceProfile = false)
+    internal static bool ValidateNative(byte[] bytes, bool force, bool deviceProfile = false)
     {
         if (deviceProfile) ValidateDevice(bytes); else ValidateSpac(bytes);
         var encoder = FindEncoder();
@@ -119,7 +121,7 @@ internal static class DtsProfileService
     }
     internal static void ValidateDevice(byte[] bytes)
     {
-        if (bytes.Length < 64 || bytes.Length > 16 * 1024 * 1024 || BitConverter.ToUInt32(bytes, 0) != bytes.Length || BitConverter.ToUInt32(bytes, 4) != 0x56454452 || BitConverter.ToUInt32(bytes, 8) != 2 || BitConverter.ToUInt32(bytes, 20) != 0x51504752 || BitConverter.ToUInt32(bytes, 24) != 2 || BitConverter.ToUInt32(bytes, 28) != 48000)
+        if (bytes.Length < 56 || bytes.Length > 16 * 1024 * 1024 || BitConverter.ToUInt32(bytes, 0) != bytes.Length || BitConverter.ToUInt32(bytes, 4) != 0x56454452 || BitConverter.ToUInt32(bytes, 8) != 2 || BitConverter.ToUInt32(bytes, 20) != 0x51504752 || BitConverter.ToUInt32(bytes, 24) != 2 || BitConverter.ToUInt32(bytes, 28) != 48000)
             throw new ProfileOperationException("This DTS device EQ format is not supported.");
         long left = BitConverter.ToUInt32(bytes, 44), right = BitConverter.ToUInt32(bytes, 48), fir = BitConverter.ToUInt32(bytes, 52);
         if (left > 64 || right > 64 || fir > 65536 || 56 + (left + right) * 24 + fir * 8 > bytes.Length)
@@ -173,27 +175,30 @@ internal static class DtsProfileService
         string profile = state != null && !MatchesState(state, runtime, device, counter) ? "Profile changed outside this application." : custom ? "Custom profile loaded." : "Device profile loaded.";
         string eqMode;
         try { ValidateDevice(device); eqMode = device.AsSpan(44, 12).IndexOfAnyExcept((byte)0) < 0 ? "Off" : "Original"; } catch (ProfileOperationException) { eqMode = "Unknown"; }
-        return new(custom, active, eqMode, state != null && hash == state.AppliedHash ? state.RoomMode : "Original", (active ? "DTS Headphone:X active. " : "DTS Headphone:X is not active. ") + profile);
+        if (state?.EqProfile != null && ProfileService.Hash(device) == state.AppliedDeviceHash) eqMode = "Custom";
+        return new(custom, active, eqMode, state != null && hash == state.AppliedHash ? state.RoomMode : "Original", (active ? "DTS Headphone:X active. " : "DTS Headphone:X is not active. ") + profile + (eqMode == "Custom" ? " Headphone EQ: " + state!.EqProfile!.Name + "." : ""));
     }
-    public static async Task<(string Path, string Summary, bool NativeValidated)> Convert(AudioDevice selected, string sofa, bool force = false)
+    public static async Task<(string Path, string Summary, bool NativeValidated)> Convert(AudioDevice selected, string sofa, bool force = false, string interpolationMethod = "time-aligned")
     {
+        if (interpolationMethod is not ("linear" or "time-aligned")) throw new ProfileOperationException("Unknown spatial interpolation method.");
         var d = ProfileService.Resolve(selected);
         if (!File.Exists(sofa)) throw new ProfileToolException("The SOFA file was not found.", sofa);
         if (new FileInfo(sofa).Length > 1024L * 1024 * 1024) throw new ProfileOperationException("The SOFA file exceeds the 1 GiB size limit.");
         var folder = Path.Combine(SpatialFiles.Folder(d, "dts"), "conversions", Guid.NewGuid().ToString("N")); Directory.CreateDirectory(folder);
         using (var store = new SpatialStore(d, Context, false, false)) { var current = Read(store, d, force); File.WriteAllBytes(Path.Combine(folder, "template.bin"), LoadForChange(d, force)?.Original ?? current.Runtime); }
-        await RunTool(Path.Combine(ConverterRoot, "DtsSofaConverter.exe"), sofa, "--template", Path.Combine(folder, "template.bin"), "--output", Path.Combine(folder, "converted"));
+        await RunTool(Path.Combine(ConverterRoot, "DtsSofaConverter.exe"), sofa, "--template", Path.Combine(folder, "template.bin"), "--output", Path.Combine(folder, "converted"), "--interpolation", interpolationMethod);
         var path = Path.Combine(folder, "converted", "runtime_SPAC.bin"); bool nativeValidated = ValidateNative(path, force);
         using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(folder, "converted", "manifest.json"))); var r = doc.RootElement;
         SpatialFiles.Save(Path.Combine(folder, "endpoint.json"), new { Endpoint = d.Id, Hash = ProfileService.Hash(File.ReadAllBytes(path)) });
         string summary = $"SOFA: {r.GetProperty("source_directions").GetInt32()} directions, {r.GetProperty("source_rate_hz").GetInt32():N0} Hz\n" +
             $"DTS: {r.GetProperty("converted_directional_positions").GetInt32()} directional nodes, {r.GetProperty("response_samples").GetInt32():N0} samples per ear, 48,000 Hz\n" +
-            $"Interpolation: common time-domain weights for both ears\n" +
+            $"Interpolation: {(interpolationMethod == "time-aligned" ? "delay-aligned HRIRs" : "linear HRIRs")}, shared directional weights for both ears\n" +
             $"Added common delay: {r.GetProperty("added_common_delay_source_samples").GetInt32()} source samples\n" +
+            $"Interpolation padding: {r.GetProperty("added_interpolation_delay_native_samples").GetInt32()} samples at 48 kHz; ambiguous blends kept linear: {r.GetProperty("alignment_fallback_count").GetInt32()}\n" +
             (nativeValidated ? "Native format validation: passed with the installed DTS encoder." : "Native format validation: skipped by override for an unverified encoder version.");
         return (path, summary, nativeValidated);
     }
-    public static string Change(AudioDevice selected, string? candidate, bool enabled, bool force = false, string eqMode = "Off", bool settingsOnly = false, string? roomMode = null)
+    public static string Change(AudioDevice selected, string? candidate, bool enabled, bool force = false, string eqMode = "Selected", bool settingsOnly = false, string? roomMode = null)
     {
         var d = ProfileService.Resolve(selected); using var operation = new SpatialOperation();
         SpatialFiles.RequireProvider(d, Provider, "DTS Headphone:X");
@@ -211,15 +216,33 @@ internal static class DtsProfileService
         if (!force && !MatchesState(state, before.Runtime, before.Device, before.Counter)) throw new ProfileWarningException("The DTS profile changed outside this tab. Allow to overwrite it.");
         desired ??= settingsOnly ? before.Runtime : state.Original;
         byte[] desiredDevice = state.Device;
-        bool validateDevice = true;
+        bool validateDevice = true, eqSkipped = false;
+        HeadphoneEqProfile? appliedEq = state.EqProfile;
         if (enabled) {
-            if (eqMode is not ("Off" or "Original" or "Current")) throw new ProfileOperationException("Unknown DTS EQ setting.");
-            if (eqMode == "Current") desiredDevice = before.Device;
-            if (eqMode == "Off") {
+            if (eqMode is not ("Off" or "Original" or "Current" or "Selected") && !eqMode.StartsWith("Profile:", StringComparison.Ordinal)) throw new ProfileOperationException("Unknown DTS EQ setting.");
+            HeadphoneEqProfile? selectedEq = eqMode.StartsWith("Profile:", StringComparison.Ordinal)
+                ? HeadphoneEq.Profiles().SingleOrDefault(p => p.Id == eqMode[8..]) ?? throw new ProfileOperationException("The selected EQ profile was not found.")
+                : eqMode == "Selected" ? state.EqProfile : null;
+            if (eqMode.StartsWith("Profile:", StringComparison.Ordinal)) appliedEq = selectedEq;
+            else if (eqMode is "Off" or "Original") appliedEq = null;
+            if (selectedEq != null) {
+                try { desiredDevice = HeadphoneEq.DtsDevice(state.Device, selectedEq); }
+                catch (Exception e) when (e is ProfileOperationException or InvalidDataException) {
+                    if (!force) throw new ProfileWarningException("The uploaded EQ cannot be encoded for this DTS device. Allow to continue while preserving current device EQ. " + e.Message);
+                    if (settingsOnly && roomMode == null) throw new ProfileOperationException("The EQ was not applied. " + e.Message);
+                    desiredDevice = before.Device; appliedEq = null; validateDevice = false; eqSkipped = true;
+                }
+            }
+            if (eqMode == "Current") {
+                desiredDevice = before.Device;
+                if (ProfileService.Hash(before.Device) != state.AppliedDeviceHash) appliedEq = null;
+            }
+            if (eqMode == "Off" || eqMode == "Selected" && selectedEq == null) {
                 try { desiredDevice = EqOff(state.Device); }
                 catch (ProfileOperationException) {
                     if (!force) throw new ProfileWarningException("This DTS EQ format is not supported. Allow to apply without changing device EQ.");
-                    desiredDevice = before.Device; validateDevice = false;
+                    if (settingsOnly && roomMode == null) throw new ProfileOperationException("The EQ could not be disabled for this DTS format. The device EQ was left unchanged.");
+                    desiredDevice = before.Device; validateDevice = false; eqSkipped = true;
                 }
             }
             if (validateDevice) {
@@ -251,9 +274,11 @@ internal static class DtsProfileService
             SpatialFiles.VerifyUnchanged(snapshot, SpatialFiles.Snapshot(d, Context), "{" + Runtime + "},1", "{" + Device + "},1", "{" + Counter + "},1");
             SpatialFiles.RequireProvider(d, Provider, "DTS Headphone:X");
 
-            if (enabled) { state.Enabled = settingsOnly ? state.Enabled ?? hash == state.AppliedHash && hash != state.OriginalHash : true; state.RoomMode = appliedRoom; state.AppliedHash = ProfileService.Hash(desired); state.AppliedCounter = counter; state.AppliedDeviceHash = ProfileService.Hash(desiredDevice); }
+            if (enabled) { state.Enabled = settingsOnly ? state.Enabled ?? hash == state.AppliedHash && hash != state.OriginalHash : true; state.RoomMode = appliedRoom; state.AppliedHash = ProfileService.Hash(desired); state.AppliedCounter = counter; state.AppliedDeviceHash = ProfileService.Hash(desiredDevice);
+                state.EqProfile = appliedEq;
+            }
             if (!enabled) state.Enabled = false;
-            SpatialFiles.Save(StatePath(d), state); return settingsOnly ? roomMode != null ? "DTS room updated. Profile preserved." : "DTS EQ updated. Profile preserved." : enabled ? "Custom DTS profile on." : "Saved DTS profile restored.";
+            SpatialFiles.Save(StatePath(d), state); if (eqSkipped) return EqSkippedMessage; return settingsOnly ? roomMode != null ? "DTS room updated. Profile preserved." : "DTS EQ updated. Profile preserved." : enabled ? "Custom DTS profile on." : "Saved DTS profile restored.";
         } catch {
             var current = Read(store, d, force);
             if ((!current.Runtime.SequenceEqual(before.Runtime) && !current.Runtime.SequenceEqual(desired)) || current.Counter != before.Counter && current.Counter != counter || !current.Device.AsSpan().SequenceEqual(before.Device) && !current.Device.AsSpan().SequenceEqual(desiredDevice)) throw new ProfileOperationException("The DTS profile changed during the operation. The backup is saved.");

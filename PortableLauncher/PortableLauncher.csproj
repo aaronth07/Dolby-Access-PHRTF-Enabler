@@ -2,10 +2,10 @@
  <PropertyGroup>
   <OutputType>WinExe</OutputType><TargetFramework>net10.0</TargetFramework><RuntimeIdentifier>win-x64</RuntimeIdentifier>
   <PublishAot>true</PublishAot><SelfContained>true</SelfContained><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
-  <AssemblyName>DolbyAccessPhrtfEnabler-Portable</AssemblyName><Version>2.0.0</Version>
+  <AssemblyName>DolbyAccessPhrtfEnabler-Portable</AssemblyName><Version>2.2.0</Version>
   <DebugType>none</DebugType><DebugSymbols>false</DebugSymbols><StripSymbols>true</StripSymbols>
   <PathMap>$(MSBuildProjectDirectory)=/_/src</PathMap>
-  <PayloadZip Condition="'$(PayloadZip)' == ''">../release/Dolby-Access-PHRTF-Enabler-v2.0.0-win-x64.zip</PayloadZip>
+  <PayloadZip Condition="'$(PayloadZip)' == ''">../release/Dolby-Access-PHRTF-Enabler-v2.2.0-win-x64.zip</PayloadZip>
  </PropertyGroup>
  <ItemGroup>
   <EmbeddedResource Include="$(PayloadZip)" LogicalName="payload.zip"/>

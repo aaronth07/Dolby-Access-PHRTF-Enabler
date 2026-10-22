@@ -16,7 +16,7 @@ using System.Text.RegularExpressions;
 namespace AtmosProfile;
 
 public sealed record AudioDevice(string Id, string WinRtId, string Name) { public override string ToString() => Name; }
-public sealed record ProfileStatus(bool Atmos, bool Personalized, bool CanRestore, string Message);
+public sealed record ProfileStatus(bool Atmos, bool Personalized, bool CanRestore, string Message, string? Warning = null);
 public sealed class BackupRecord
 {
     public string Endpoint { get; set; } = "";
@@ -66,7 +66,8 @@ public static class ProfileService
         IProfileControlDevice? device;
         IProfileControlEffects? effects;
         public IProfileControlStore? Value;
-        public Store(AudioDevice selected, bool writable)
+        public bool AlternateConfiguration { get; private set; }
+        public Store(AudioDevice selected, bool writable, bool force = false)
         {
             enumerator = (IProfileControlEnumerator)new ProfileControlEnumerator();
             try
@@ -80,39 +81,47 @@ public static class ProfileService
                 Check(effects.OpenUserPropertyStore(writable ? 2u : 0u, out Value));
                 var alt = new ProfileControlKey("70b95986-9ee3-4b43-acb2-de7aeb1a9509", 1);
                 Check(Value.GetValue(ref alt, out var v));
-                try { if (v.type != 0) throw new ProfileOperationException("The Dolby profile cannot be verified on this device."); }
+                try { AlternateConfiguration = v.type != 0; if (AlternateConfiguration && !force) throw new ProfileWarningException("Additional Dolby configuration is present. Allow to apply the selected profile while preserving those properties."); }
                 finally { PropVariantClear(ref v); }
             }
             catch { Dispose(); throw; }
         }
-        public byte[] Read()
+        public byte[] Read(bool force = false)
         {
             var key = Key; Check(Value!.GetValue(ref key, out var v));
-            try { if (v.type != 65 || v.length == 0 || v.length > 131072 || v.bytes == IntPtr.Zero) throw new ProfileOperationException("The Dolby profile cannot be verified on this device."); var result = new byte[v.length]; Marshal.Copy(v.bytes, result, 0, result.Length); return result; }
+            try { if (v.type == 0) { if (force) return []; throw new ProfileWarningException("No Dolby initialization is saved on this device. Allow to initialize it from the selected profile."); } if (v.type != 65 || v.length == 0 || v.length > 16 * 1024 * 1024 || v.bytes == IntPtr.Zero) throw new ProfileOperationException("The Dolby profile cannot be verified on this device."); var result = new byte[v.length]; Marshal.Copy(v.bytes, result, 0, result.Length); return result; }
             finally { PropVariantClear(ref v); }
         }
         public void Write(byte[] data)
         {
-            var key = Key; var v = new ProfileControlVariant { type = 65, length = (uint)data.Length, bytes = Marshal.AllocCoTaskMem(data.Length) };
-            try { Marshal.Copy(data, 0, v.bytes, data.Length); Check(Value!.SetValue(ref key, ref v)); Check(Value.Commit()); }
+            var key = Key; var v = data.Length == 0 ? new ProfileControlVariant() : new ProfileControlVariant { type = 65, length = (uint)data.Length, bytes = Marshal.AllocCoTaskMem(data.Length) };
+            try { if (data.Length != 0) Marshal.Copy(data, 0, v.bytes, data.Length); Check(Value!.SetValue(ref key, ref v)); Check(Value.Commit()); }
             finally { PropVariantClear(ref v); }
         }
         public void Dispose() { if (Value != null) Marshal.ReleaseComObject(Value); if (effects != null) Marshal.ReleaseComObject(effects); if (device != null) Marshal.ReleaseComObject(device); Marshal.ReleaseComObject(enumerator); }
     }
 
+#if TESTING
+    internal static void WriteInitializationForTest(AudioDevice device, byte[] bytes) { using var store = new Store(device, true, true); store.Write(bytes); }
+    internal static byte[] ReadInitializationForTest(AudioDevice device) { using var store = new Store(device, false, true); return store.Read(true); }
+#endif
     static byte[] RegistryBytes(AudioDevice device)
     {
         using var key = Registry.LocalMachine.OpenSubKey(RegistryPath(device));
-        return key?.GetValue(Property) as byte[] ?? throw new ProfileOperationException("The Dolby profile could not be found.");
+        var value = key?.GetValue(Property);
+        if (value == null) return [];
+        return value as byte[] ?? throw new ProfileOperationException("The saved Dolby property has an unsupported registry type.");
     }
     static Dictionary<string, string> Snapshot(AudioDevice device)
     {
-        using var key = Registry.LocalMachine.OpenSubKey(RegistryPath(device)) ?? throw new ProfileOperationException("The Dolby profile could not be found.");
+        using var key = Registry.LocalMachine.OpenSubKey(RegistryPath(device));
+        if (key == null) return new();
         return key.GetValueNames().ToDictionary(n => n, n => key.GetValueKind(n) + ":" + Hash(key.GetValue(n) is byte[] b ? b : System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(key.GetValue(n)))));
     }
     static void VerifyRegistry(AudioDevice device, byte[] expected)
     {
         var bytes = RegistryBytes(device);
+        if (expected.Length == 0 && bytes.Length == 0) return;
         if (bytes.Length != expected.Length + 8 || !bytes.AsSpan(0, 8).SequenceEqual(Convert.FromHexString("4100000001000000")) || !bytes.AsSpan(8).SequenceEqual(expected)) throw new ProfileOperationException("The saved profile could not be verified.");
     }
     static BackupRecord? LoadState(AudioDevice device)
@@ -136,6 +145,7 @@ public static class ProfileService
                 if (File.ReadAllText(Path.Combine(folder, "endpoint.txt")) != device.Id) continue;
                 var api = File.ReadAllBytes(Path.Combine(folder, "profile_api.bin"));
                 var registry = File.ReadAllBytes(Path.Combine(folder, "profile_registry.bin"));
+                if (api.Length == 0 && registry.Length == 0) return new() { Endpoint = device.Id, Original = "", OriginalHash = Hash(api) };
                 if (registry.Length != api.Length + 8 || !registry.AsSpan(0, 8).SequenceEqual(Convert.FromHexString("4100000001000000")) || !registry.AsSpan(8).SequenceEqual(api)) continue;
                 _ = ProfileFile.HasPersonalization(api);
                 return new() { Endpoint = device.Id, Original = Convert.ToBase64String(api), OriginalHash = Hash(api) };
@@ -163,13 +173,31 @@ public static class ProfileService
         var spatial = AudioPlatform.Spatial(device);
         bool atmos = spatial.ActiveSpatialAudioFormat.Equals(AudioPlatform.Dolby, StringComparison.OrdinalIgnoreCase)
             && spatial.DefaultSpatialAudioFormat.Equals(AudioPlatform.Dolby, StringComparison.OrdinalIgnoreCase);
-        using var store = new Store(device, false); var current = store.Read(); VerifyRegistry(device, current);
+        using var store = new Store(device, false, true); var current = store.Read(true); VerifyRegistry(device, current);
         BackupRecord? state = null; string? warning = null;
         try { state = LoadState(device); } catch (Exception) { warning = "Saved configuration could not be verified."; }
         string hash = Hash(current);
-        bool personalized = PersonalizationEnabled(state, current);
+        string? compatibility = CompatibilityWarning(current, store.AlternateConfiguration);
+        bool personalized;
+        try { personalized = PersonalizationEnabled(state, current); } catch (Exception e) when (e is InvalidDataException or EndOfStreamException) { personalized = false; }
         bool restore = state != null;
-        return new(atmos, personalized, restore, warning ?? (atmos ? "Dolby Atmos for Headphones active" : "Enable Dolby Atmos for Headphones for this device in Windows sound settings."));
+        return new(atmos, personalized, restore, (atmos ? "Dolby Atmos for Headphones active" : "Enable Dolby Atmos for Headphones for this device in Windows sound settings.") + (warning != null ? ". " + warning : compatibility != null ? ". Saved Dolby configuration requires an override." : ""), compatibility);
+    }
+    internal static string? CompatibilityWarning(byte[] current, bool alternate = false)
+    {
+        if (current.Length == 0) return "No Dolby initialization is saved on this device. Allow to initialize it from the selected profile.";
+        try { _ = new ProfileFile("", "1.1.0", "", []).ApplyTo(current); }
+        catch (Exception e) when (e is InvalidDataException or EndOfStreamException or OverflowException) {
+            return "The existing Dolby initialization has an unfamiliar format. Allow to replace it with the selected profile; the original bytes will be backed up.";
+        }
+        return alternate ? "Additional Dolby configuration is present. Allow to apply the selected profile while preserving those properties." : null;
+    }
+    internal static byte[] PreparePersonalization(ProfileFile profile, byte[] original, bool force)
+    {
+        var warning = CompatibilityWarning(original);
+        if (warning != null && !force) throw new ProfileWarningException(warning);
+        // A documented empty initialization envelope, independent of any device or supplied profile.
+        return profile.ApplyTo(warning == null ? original : Convert.FromHexString("0101010001000000000000000100"));
     }
     internal static bool PersonalizationEnabled(BackupRecord? state, byte[] current)
     {
@@ -192,10 +220,13 @@ public static class ProfileService
         device = Resolve(device);
         using var mutex = Acquire();
         _ = VerifyTool();
-        using var store = new Store(device, true);
-        var before = store.Read(); VerifyRegistry(device, before);
-        var desired = DolbyRoomService.PrepareReset(device, before, force);
+        using var store = new Store(device, true, force);
+        var before = store.Read(force); VerifyRegistry(device, before);
+        var compatibility = CompatibilityWarning(before);
+        if (compatibility != null && !force) throw new ProfileWarningException(compatibility);
+        var desired = compatibility == null ? DolbyRoomService.PrepareReset(device, before, force) : Convert.FromHexString("0101010001000000000000000100");
         var spatial = AudioPlatform.Spatial(device); var snapshot = Snapshot(device);
+        var eqSnapshot=AtmosEqService.RoomGain(device,force)==0?null:AtmosEqService.Capture(device);
         var backup = SaveBackup(device, before); bool attempted = false;
         try {
             SetSpatial(device, false); attempted = true;
@@ -204,9 +235,10 @@ public static class ProfileService
             AfterResetWriteTest?.Invoke();
 #endif
             SetSpatial(device, true);
+            if(eqSnapshot!=null)AtmosEqService.ChangeRoomGain(device,0,force);
             var fresh = store.Read(); VerifyRegistry(device, fresh);
             if (!fresh.AsSpan().SequenceEqual(desired)) throw new ProfileOperationException("The reset Dolby profile could not be verified.");
-            SpatialFiles.VerifyUnchanged(snapshot, Snapshot(device), Property);
+            SpatialFiles.VerifyUnchanged(snapshot, Snapshot(device),eqSnapshot==null?[Property]:[Property,"{"+AtmosEqService.Primary+"},2","{"+AtmosEqService.Alternate+"},2"]);
             ResetStateFiles(device, () => {
                 EnsureOriginal(device, fresh);
                 backup = SaveBackup(device, fresh);
@@ -214,7 +246,8 @@ public static class ProfileService
             return backup;
         } catch (Exception error) {
             try {
-                if (attempted) { store.Write(before); VerifyRegistry(device, before); if (!store.Read().AsSpan().SequenceEqual(before)) throw new IOException("Dolby reset rollback failed."); }
+                if (attempted) { store.Write(before); VerifyRegistry(device, before); if (!store.Read(true).AsSpan().SequenceEqual(before)) throw new IOException("Dolby reset rollback failed."); }
+                if(eqSnapshot!=null)AtmosEqService.Restore(eqSnapshot);
                 DtsProfileService.SelectProvider(device, spatial.DefaultSpatialAudioFormat, "the original spatial provider");
                 SpatialFiles.VerifyUnchanged(snapshot, Snapshot(device));
             } catch (Exception restore) { throw new AggregateException("Dolby reset and restoration failed. Backup: " + backup, error, restore); }
@@ -307,10 +340,19 @@ public static class ProfileService
         device = Resolve(device);
         using var mutex = Acquire();
         if (!force && Process.GetProcessesByName("DolbyAccess").Length != 0) throw new ProfileWarningException("Close Dolby Access before switching the profile.");
-        var status = Inspect(device); if (!status.Atmos && !force) throw new ProfileWarningException(status.Message);
+        var startingSpatial = AudioPlatform.Spatial(device);
+        ProfileStatus status;
+        try { status = Inspect(device); }
+        catch (Exception e) when (e is ProfileOperationException or InvalidDataException or EndOfStreamException or COMException) {
+            if (!force) throw new ProfileWarningException("The existing Dolby configuration could not be inspected. Allow to attempt applying the selected profile with an automatic backup. " + e.Message);
+            bool active = startingSpatial.ActiveSpatialAudioFormat.Equals(AudioPlatform.Dolby, StringComparison.OrdinalIgnoreCase)
+                && startingSpatial.DefaultSpatialAudioFormat.Equals(AudioPlatform.Dolby, StringComparison.OrdinalIgnoreCase);
+            status = new(active, false, false, "Dolby configuration inspection unavailable.");
+        }
+        if (!force && (status.Warning != null || !status.Atmos)) throw new ProfileWarningException(status.Warning ?? status.Message);
         if (manualRestart == null) _ = VerifyTool();
         void Restart(bool on) { if (manualRestart == null) SetSpatial(device, on); else { manualRestart(on); VerifySpatial(device, on); } }
-        using var store = new Store(device, true); var before = store.Read(); var snapshot = Snapshot(device);
+        using var store = new Store(device, true, force); var before = store.Read(force); VerifyRegistry(device, before); var snapshot = Snapshot(device);
         if (!enabled && LoadStateForRestore(device) == null) {
             if (!force) throw new ProfileWarningException("Saved configuration could not be verified. Allow to restore the earliest verified backup.");
             var recovered = RecoverState(device) ?? throw new ProfileOperationException("No backup could be verified. Reset configuration.");
@@ -327,8 +369,10 @@ public static class ProfileService
         byte[] original = Convert.FromBase64String(state.Original);
         string hash = Hash(before);
         if (!force && hash != state.OriginalHash && hash != state.AppliedHash && hash != state.RestoredHash) throw new ProfileWarningException("The device profile changed outside this application.");
-        var desired = enabled ? (profile ?? throw new ProfileOperationException("Select a valid personalized headphone profile.")).ApplyTo(original) : original;
+        var desired = enabled ? PreparePersonalization(profile ?? throw new ProfileOperationException("Select a valid personalized headphone profile."), original, force) : original;
         if (enabled && PersonalizationTransform != null) desired = PersonalizationTransform(device, desired, force);
+        double roomGain=enabled&&PersonalizationTransform!=null?DolbyRoomService.SelectedGainCorrection(device,before,force):0;
+        var eqSnapshot=AtmosEqService.RoomGain(device,force)==roomGain?null:AtmosEqService.Capture(device);
         var backup = SaveBackup(device, before); bool attempted = false;
         try
         {
@@ -336,13 +380,14 @@ public static class ProfileService
 #if TESTING
             AfterWriteTest?.Invoke();
 #endif
-            if (!store.Read().SequenceEqual(desired)) throw new ProfileOperationException("The profile could not be verified.");
+            if (!store.Read(true).SequenceEqual(desired)) throw new ProfileOperationException("The profile could not be verified.");
             VerifyRegistry(device, desired);
             var after = Snapshot(device);
-            if (snapshot.Count != after.Count || snapshot.Any(p => p.Key != Property && (!after.TryGetValue(p.Key, out var v) || v != p.Value))) throw new ProfileOperationException("Another Dolby property changed.");
+            if (snapshot.Where(p => p.Key != Property).Count() != after.Where(p => p.Key != Property).Count() || snapshot.Any(p => p.Key != Property && (!after.TryGetValue(p.Key, out var v) || v != p.Value))) throw new ProfileOperationException("Another Dolby property changed.");
             Restart(true);
-            if (!store.Read().SequenceEqual(desired)) throw new ProfileOperationException("The profile could not be verified after restarting Atmos.");
+            if (!store.Read(true).SequenceEqual(desired)) throw new ProfileOperationException("The profile could not be verified after restarting Atmos.");
             VerifyRegistry(device, desired);
+            if(eqSnapshot!=null)AtmosEqService.ChangeRoomGain(device,roomGain,force);
             if (enabled) state.AppliedHash = Hash(desired);
             state.Enabled = enabled;
             SaveState(device, state); return backup;
@@ -354,12 +399,16 @@ public static class ProfileService
                 if (attempted)
                 {
                     store.Write(before);
-                    if (!store.Read().SequenceEqual(before)) throw new IOException("Rollback API mismatch.");
+                    if (!store.Read(true).SequenceEqual(before)) throw new IOException("Rollback API mismatch.");
                     VerifyRegistry(device, before);
+                    if(eqSnapshot!=null)AtmosEqService.Restore(eqSnapshot);
                     var restored = Snapshot(device);
                     if (restored.Count != snapshot.Count || snapshot.Any(p => !restored.TryGetValue(p.Key, out var v) || v != p.Value)) throw new IOException("Dolby context changed during rollback.");
                 }
-                Restart(true);
+                if (manualRestart == null) DtsProfileService.SelectProvider(device, startingSpatial.DefaultSpatialAudioFormat, "the original spatial provider");
+                else Restart(status.Atmos);
+                if (!store.Read(true).SequenceEqual(before)) throw new IOException("Rollback profile changed after provider restoration.");
+                VerifyRegistry(device, before);
             }
             catch (Exception restore) { throw new AggregateException("Profile switch and restoration failed. Backup: " + backup, error, restore); }
             throw;

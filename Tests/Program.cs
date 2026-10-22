@@ -2,6 +2,12 @@ using AtmosProfile;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
+if (args.Length > 0 && args[0] == "--legacy-room") { LegacyRoomTests.Run(args); return; }
+if (args.Length > 0 && args[0] == "--eq-native") { EqNativeTests.Run(args); return; }
+if (args.Length > 0 && args[0] == "--atmos-eq-probe") { AtmosEqProbe.Run(args); return; }
+if (args.Length > 0 && args[0] == "--eq") { EqTests.Run(); return; }
+if (args.Length > 0 && args[0] == "--atmos-eq") { AtmosEqTests.Run(); return; }
+if (args.Length > 0 && args[0] == "--override-live") { OverrideTests.Run(args); return; }
 if (args.Length > 0 && args[0] == "--features") { await FeatureTests.Run(args); return; }
 if (args.Length > 0 && args[0] == "--review") { ReviewTests.Run(); return; }
 

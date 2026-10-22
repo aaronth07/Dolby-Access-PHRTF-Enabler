@@ -52,11 +52,18 @@ internal static class DtsRoomService
         applied = mode;
         if (mode == "Off") { var s = Sends(profile); var result = profile.ToArray(); Array.Clear(result, s.Offset, s.Length); return result; }
         if (mode == "Original") return CopyRoom(profile, original);
-        if (mode is not ("Balanced" or "Spacious")) throw new ProfileOperationException("Unknown DTS room preset.");
-        try { return CopyRoom(profile, InstalledPreset(mode)); }
+        if (mode is not ("Balanced" or "Spacious" or "Spacious200" or "Spacious400")) throw new ProfileOperationException("Unknown DTS room preset.");
+        try { var result=CopyRoom(profile, InstalledPreset(mode.StartsWith("Spacious",StringComparison.Ordinal)?"Spacious":mode));return ScaleRoom(result,mode=="Spacious200"?2:mode=="Spacious400"?4:1); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or CryptographicException or ProfileOperationException) {
             if (!force) throw new ProfileWarningException(e.Message + " Allow to keep the original room sends instead.");
             applied = "Original"; return CopyRoom(profile, original);
         }
+    }
+    internal static byte[] ScaleRoom(byte[] profile,double gain)
+    {
+        if(gain is not(1 or 2 or 4))throw new ArgumentOutOfRangeException(nameof(gain));
+        var result=profile.ToArray();var sends=Sends(result);
+        for(int offset=sends.Offset;offset<sends.Offset+sends.Length;offset+=4){float value=(float)(BitConverter.ToSingle(result,offset)*gain);if(!float.IsFinite(value))throw new ProfileOperationException("The DTS room gain exceeds native float range.");BitConverter.GetBytes(value).CopyTo(result,offset);}
+        return result;
     }
 }

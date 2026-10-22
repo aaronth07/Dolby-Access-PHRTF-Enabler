@@ -76,7 +76,7 @@
           "sha256": "a7a47c675ffd3d63928c45321f65a67ebfdb9c430d36b8449eb56cc6f3ce2515"
         },
         "sample_rate_hz": 48000,
-        "array_layout": "direction × ear × sample",
+        "array_layout": "direction \u00c3\u2014 ear \u00c3\u2014 sample",
         "array_shape": [
           6,
           2,
@@ -101,7 +101,7 @@
           "sha256": "9973be7ec9db6c309724429518b33a19eecaf4e2e7d1332eca162404357491a6"
         },
         "sample_rate_hz": 48000,
-        "array_layout": "direction × ear × sample",
+        "array_layout": "direction \u00c3\u2014 ear \u00c3\u2014 sample",
         "array_shape": [
           6,
           2,
@@ -158,5 +158,25 @@
       "restoration_verified": true
     }
   },
-  "distribution_boundary": "Contains plot assets and generic plotting code only; raw response arrays and audio captures are not included."
+  "distribution_boundary": "Contains plot assets and generic plotting code only; raw response arrays and audio captures are not included.",
+  "native_eq_room_beta": {
+    "date": "2026-10-21",
+    "direction": "30 degrees left, 0 degrees elevation, 1 m",
+    "repetitions": 2,
+    "sample_rate_hz": 48000,
+    "smoothing": "1/6-octave mean power; 2 ms decay blocks",
+    "normalization": "none",
+    "timing": "One common stereo lag per repetition; trim at earliest direct peak",
+    "restoration": "Exact native starting properties and provider verified",
+    "artifacts": [
+      {
+        "file": "native-atmos-eq-room.png",
+        "sha256": "5e59ee2c0fbf38f28727f747abf54c944661bbf2137e50d67abd3a5383e4d05c"
+      },
+      {
+        "file": "native-dts-overdrive.png",
+        "sha256": "d94e3634b2b7b6a3854e5d1c98dd77becd86241260c138354d4186e7ee1efc5b"
+      }
+    ]
+  }
 }

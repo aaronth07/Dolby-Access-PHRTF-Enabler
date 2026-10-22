@@ -1,0 +1,20 @@
+<UserControl x:Class="AtmosProfile.HeadphoneEqPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Loaded="PageLoaded">
+ <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Padding="24" Spacing="12">
+  <TextBlock Text="Headphone EQ" Style="{StaticResource TitleTextBlockStyle}" TextWrapping="Wrap"/>
+  <ComboBox x:Name="Profiles" Header="Saved EQ profile" HorizontalAlignment="Stretch" SelectionChanged="ProfileChanged" AutomationProperties.AutomationId="EqProfiles"/>
+  <Grid ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+   <TextBox x:Name="ImportPath" PlaceholderText="Equalizer APO parametric EQ text file" AutomationProperties.AutomationId="EqImportPath"/>
+   <Button x:Name="Browse" Grid.Column="1" Content="Browse…" Click="BrowseClicked" AutomationProperties.AutomationId="EqBrowse"/>
+  </Grid>
+  <StackPanel Orientation="Horizontal" Spacing="8"><Button x:Name="Import" Content="Import profile" Click="ImportClicked" AutomationProperties.AutomationId="EqImport"/><Button x:Name="Delete" Content="Delete profile" Click="DeleteClicked" AutomationProperties.AutomationId="EqDelete"/></StackPanel>
+  <Canvas x:Name="Graph" Height="180" SizeChanged="GraphSizeChanged" AutomationProperties.AutomationId="EqResponseGraph"/>
+  <TextBlock x:Name="Summary" TextWrapping="Wrap" AutomationProperties.AutomationId="EqSummary"/>
+  <ComboBox x:Name="Devices" Header="Playback device" HorizontalAlignment="Stretch" SelectionChanged="DeviceChanged" AutomationProperties.AutomationId="EqDevice"/>
+  <TextBlock x:Name="Status" TextWrapping="Wrap" AutomationProperties.AutomationId="EqDeviceStatus"/>
+  <StackPanel Orientation="Horizontal" Spacing="8">
+   <Button x:Name="Apply" Content="Apply EQ" Click="ApplyClicked" AutomationProperties.AutomationId="EqApply"><ToolTipService.ToolTip>Atmos converts the response to 20 native EQ bands. DTS uses the uploaded biquad filters.</ToolTipService.ToolTip></Button>
+   <Button x:Name="Off" Content="EQ off" Click="OffClicked" AutomationProperties.AutomationId="EqOff"/>
+  </StackPanel>
+  <InfoBar x:Name="Message" IsOpen="False" IsClosable="True"><InfoBar.ActionButton><Button x:Name="Allow" Content="Allow anyway" Visibility="Collapsed" Click="AllowClicked"/></InfoBar.ActionButton></InfoBar>
+ </StackPanel></ScrollViewer>
+</UserControl>

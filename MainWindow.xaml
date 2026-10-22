@@ -7,7 +7,7 @@
  <TabViewItem Header="Dolby PHRTF" IsClosable="False">
  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
   <StackPanel x:Name="Form" Padding="24" Spacing="16" Loaded="Loaded">
-   <TextBlock Text="Dolby Access PHRTF Enabler" Style="{ThemeResource TitleTextBlockStyle}"/>
+   <TextBlock Text="Dolby Access PHRTF Enabler" Style="{ThemeResource TitleTextBlockStyle}" TextWrapping="Wrap"/>
    <ComboBox x:Name="Devices" Header="Playback device" HorizontalAlignment="Stretch" SelectionChanged="DeviceChanged" AutomationProperties.AutomationId="DeviceSelector"/>
    <Grid ColumnSpacing="8">
     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -22,12 +22,13 @@
    </ToggleSwitch>
    <Button x:Name="Reset" Content="Reset configuration…" Click="ResetClicked" AutomationProperties.AutomationId="Reset"/>
 <ProgressBar x:Name="Progress" IsIndeterminate="True" Visibility="Collapsed"/>
-   <InfoBar x:Name="Message" IsOpen="False" IsClosable="True" AutomationProperties.AutomationId="OperationStatus"><InfoBar.ActionButton><Button x:Name="Allow" Content="Allow anyways" Visibility="Collapsed" Click="AllowClicked"/></InfoBar.ActionButton></InfoBar>
+   <InfoBar x:Name="Message" IsOpen="False" IsClosable="True" AutomationProperties.AutomationId="OperationStatus"><InfoBar.ActionButton><Button x:Name="Allow" Content="Allow anyway" Visibility="Collapsed" Click="AllowClicked"/></InfoBar.ActionButton></InfoBar>
   </StackPanel>
  </ScrollViewer>
  </TabViewItem>
  <TabViewItem Header="Dolby room" IsClosable="False"><local:RoomPage/></TabViewItem>
  <TabViewItem Header="DTS profile" IsClosable="False"><local:DtsPage/></TabViewItem>
+ <TabViewItem Header="Headphone EQ" IsClosable="False"><local:HeadphoneEqPage/></TabViewItem>
  </TabView>
  <TextBlock Grid.Row="1" Margin="24,8,24,16" Text="Settings remain on this device after exit. Audio reinitialization or vendor profile changes may require reapplying." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="PersistenceDisclaimer"/>
  </Grid>

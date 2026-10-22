@@ -1,3 +1,7 @@
+# Local 2.1.0 beta update
+
+Native Atmos EQ, combined room gain correction, DTS Spacious overdrive, and delay-aligned SOFA conversion are described with their measured results and limits in [the implementation status](docs/native-renderer-eq-status.md). System Sonic replacement remains unverified and is excluded from the runnable candidate.
+
 # Technical report
 
 The application applies owned personalized headphone data through the selected Windows endpoint's native effects property store. Native object-rendering comparisons establish that these profiles affect recorded output. The app checks persisted configuration and exact transaction readback; those checks do not measure personal suitability.

@@ -30,9 +30,9 @@ internal sealed class SpatialStore : IDisposable
             Check(effects.OpenUserPropertyStore(writable ? 2u : 0u, out store));
         } catch { Dispose(); throw; }
     }
-    public (ushort Type, byte[] Data) Read(string guid)
+    public (ushort Type, byte[] Data) Read(string guid, uint propertyId = 1)
     {
-        var key = new ProfileControlKey(guid, 1); Check(store!.GetValue(ref key, out var value));
+        var key = new ProfileControlKey(guid, propertyId); Check(store!.GetValue(ref key, out var value));
         try {
             if (value.type == 0) return (0, []);
             if (value.type == 19) return (19, BitConverter.GetBytes(value.length));
@@ -43,12 +43,17 @@ internal sealed class SpatialStore : IDisposable
     }
     public byte[] Blob(string guid) { var v = Read(guid); if (v.Type != 65) throw new ProfileOperationException("The device profile could not be found."); return v.Data; }
     public uint Counter(string guid) { var v = Read(guid); if (v.Type != 19) throw new ProfileOperationException("DTS could not be verified."); return BitConverter.ToUInt32(v.Data); }
-    public void Write(string guid, byte[] bytes)
+    public void Write(string guid, byte[] bytes, uint propertyId = 1)
     {
-        var key = new ProfileControlKey(guid, 1);
+        var key = new ProfileControlKey(guid, propertyId);
         var value = new ProfileControlVariant { type = 65, length = (uint)bytes.Length, bytes = Marshal.AllocCoTaskMem(bytes.Length) };
         try { Marshal.Copy(bytes, 0, value.bytes, bytes.Length); Check(store!.SetValue(ref key, ref value)); if (commit) Check(store.Commit()); }
         finally { PropVariantClear(ref value); }
+    }
+    public void Clear(string guid, uint propertyId = 1)
+    {
+        var key = new ProfileControlKey(guid, propertyId); var value = new ProfileControlVariant();
+        Check(store!.SetValue(ref key, ref value)); if (commit) Check(store.Commit());
     }
     public void Write(string guid, uint number)
     {
@@ -87,14 +92,15 @@ internal static class SpatialFiles
     }
     public static void VerifyUnchanged(Dictionary<string, string> before, Dictionary<string, string> after, params string[] allowed)
     {
-        if (before.Count != after.Count || before.Any(p => !allowed.Contains(p.Key, StringComparer.OrdinalIgnoreCase) && (!after.TryGetValue(p.Key, out var value) || p.Value != value)))
+        bool Excluded(string key) => allowed.Contains(key, StringComparer.OrdinalIgnoreCase);
+        if (before.Count(p => !Excluded(p.Key)) != after.Count(p => !Excluded(p.Key)) || before.Any(p => !Excluded(p.Key) && (!after.TryGetValue(p.Key, out var value) || p.Value != value)))
             throw new ProfileOperationException("Other device settings changed.");
     }
-    public static void VerifyPersisted(AudioDevice d, string context, string guid, byte[] expected)
+    public static void VerifyPersisted(AudioDevice d, string context, string guid, byte[] expected, uint propertyId = 1)
     {
         var endpoint = Guid.Parse(d.Id[(d.Id.LastIndexOf('.') + 1)..]).ToString("B");
         using var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Render\" + endpoint + @"\FxProperties\{" + context + @"}\User");
-        var value = key?.GetValue("{" + guid + "},1") as byte[];
+        var value = key?.GetValue("{" + guid + "}," + propertyId) as byte[];
         if (value == null || value.Length != expected.Length + 8 || !value.AsSpan(0, 8).SequenceEqual(Convert.FromHexString("4100000001000000")) || !value.AsSpan(8).SequenceEqual(expected))
             throw new ProfileOperationException("The saved profile could not be verified.");
     }
