@@ -4,7 +4,7 @@ Load personalized headphone profiles into **Dolby Atmos for Headphones** or **DT
 
 Version **2.2.0** fixes Dolby room controls when no personalized Atmos profile is applied. Built-in tuning is read from the installed Dolby Access package; a personal HRTF is not required. The window now resizes and fits smaller displays, and EQ import controls remain disabled during operations.
 
-Compared with the previously published 2.0 release, this version also includes native Atmos/DTS headphone EQ, saved parametric EQ profiles, time-aligned SOFA interpolation, DTS Spacious 200%/400%, and optional gain correction for Dolby 200%/400%. [Release notes](docs/release-notes.md) Â· [Regression requirements](regression.md).
+Compared with the previously published 2.0 release, this version also includes native Atmos/DTS headphone EQ, saved parametric EQ profiles, time-aligned SOFA interpolation, DTS Spacious 200%/400%, and optional gain correction for Dolby 200%/400%. [Release notes](docs/release-notes.md) · [Regression requirements](regression.md).
 
 ![Dolby PHRTF controls](docs/images/app-dolby.png)
 

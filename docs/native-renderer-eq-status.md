@@ -15,7 +15,7 @@ Only a virtual test endpoint was changed. Every native test saved the starting c
 
 Two repeated Windows spatial-object recordings per setting, 30 degrees left, 0 degrees elevation, 1 m, 48 kHz:
 
-| Setting | Direct energy, 0â€“5 ms | Late energy, 20â€“150 ms |
+| Setting | Direct energy, 0–5 ms | Late energy, 20–150 ms |
 | --- | --- | --- |
 | Atmos EQ preamp -6 dB, relative to flat EQ | -5.9999 dB | -5.9522 dB |
 | Atmos 200% with +6 dB correction, relative to room On | -0.0356 dB | +5.9646 dB |
@@ -23,7 +23,7 @@ Two repeated Windows spatial-object recordings per setting, 30 degrees left, 0 d
 | DTS Spacious 200%, relative to Spacious | +0.0002 dB | +5.9984 dB |
 | DTS Spacious 400%, relative to Spacious | +0.0002 dB | +12.0134 dB |
 
-Atmos's -6 dB preamp measured -6.0003 dB median across 50 Hzâ€“16 kHz with 1/6-octave power smoothing. A separate -6 dB, 1 kHz, Q 1 EQ capture verifies native frequency-dependent uptake. No gain normalization was applied. Timing correction uses one common stereo lag per repetition, preserving ear timing. The published plots use mean left/right power, 1/6-octave frequency smoothing, and 2 ms energy blocks after the earliest direct peak. These are renderer measurements, not listening or personal-fit results.
+Atmos's -6 dB preamp measured -6.0003 dB median across 50 Hz–16 kHz with 1/6-octave power smoothing. A separate -6 dB, 1 kHz, Q 1 EQ capture verifies native frequency-dependent uptake. No gain normalization was applied. Timing correction uses one common stereo lag per repetition, preserving ear timing. The published plots use mean left/right power, 1/6-octave frequency smoothing, and 2 ms energy blocks after the earliest direct peak. These are renderer measurements, not listening or personal-fit results.
 
 ![Atmos EQ and room correction](images/native-atmos-eq-room.png)
 

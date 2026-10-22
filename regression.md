@@ -21,6 +21,7 @@ Run `dotnet run --project Tests/Tests.csproj -c Release -- --legacy-room`. An op
 - `FeatureWindow.cs`: permit resizing/maximizing, fit initial dimensions to the nearest display's work area, and cap minimum tracking dimensions to that work area. Do not restore fixed width or an unconditional 720-pixel minimum height.
 - Page titles wrap, each page scrolls, and controls remain reachable at 480×420 and 560×720 in light and dark themes.
 - `HeadphoneEqPage`: disable Browse and Import while an operation runs, along with the other input controls. Keep `EqBrowse`, `EqImport`, and `EqDelete` automation identifiers.
+- Read and write source/documentation explicitly as UTF-8; preserve ellipses, middle dots and dash characters in labels without double encoding.
 - Empty EQ state disables Apply/Delete; import errors leave the UI usable; repeated imports have distinct names; deleting the final profile restores the empty state.
 - Preserve both SOFA interpolation options, all room selections, experimental confirmation/gain correction, generic force controls, independent Dolby/DTS reset scope, and automatic backups.
 

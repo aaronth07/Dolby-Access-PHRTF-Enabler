@@ -54,6 +54,6 @@ public sealed partial class HeadphoneEqPage : UserControl
         foreach(double db in new[]{-limit,0,limit}){Graph.Children.Add(new Line{X1=left,X2=width-8,Y1=Y(db),Y2=Y(db),Stroke=new SolidColorBrush(Windows.UI.Color.FromArgb(70,128,128,128))});Label($"{db:g}",0,Y(db)-7);}
         foreach(var tick in new[]{(20d,"20"),(100d,"100"),(1000d,"1k"),(10000d,"10k"),(20000d,"20k")})Label(tick.Item2,X(tick.Item1)-(tick.Item1==20000?20:5),top+height+5);
         var curve=new Polyline{Stroke=new SolidColorBrush(Windows.UI.Color.FromArgb(255,35,145,195)),StrokeThickness=1.8};for(int i=0;i<gains.Length;i++)curve.Points.Add(new Point(X(frequencies[i]),Y(gains[i])));Graph.Children.Add(curve);
-        Summary.Text=$"{p.Bands.Length} filters Â· Preamp {p.PreampDb:+0.##;-0.##;0} dB Â· Peak response {gains.Max():+0.##;-0.##;0} dB";
+        Summary.Text=$"{p.Bands.Length} filters · Preamp {p.PreampDb:+0.##;-0.##;0} dB · Peak response {gains.Max():+0.##;-0.##;0} dB";
     }
 }

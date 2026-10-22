@@ -12,7 +12,7 @@
    <Grid ColumnSpacing="8">
     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
     <TextBox x:Name="ProfilePath" Header="Personalized headphone profile" PlaceholderText="Select or paste a file path" LostFocus="PathChanged" KeyDown="PathKeyDown" AutomationProperties.AutomationId="ProfilePath"/>
-    <Button x:Name="Browse" Grid.Column="1" Content="Browseâ€¦" VerticalAlignment="Bottom" Click="BrowseClicked" AutomationProperties.AutomationId="BrowseProfile"/>
+    <Button x:Name="Browse" Grid.Column="1" Content="Browse…" VerticalAlignment="Bottom" Click="BrowseClicked" AutomationProperties.AutomationId="BrowseProfile"/>
    </Grid>
    <TextBlock x:Name="Metadata" TextWrapping="Wrap" Visibility="Collapsed" AutomationProperties.AutomationId="ProfileMetadata"/>
    <TextBlock x:Name="AtmosStatus" TextWrapping="Wrap" AutomationProperties.AutomationId="AtmosStatus"/>
@@ -20,7 +20,7 @@
    <ToggleSwitch x:Name="Personalized" Header="Personalized profile" OnContent="On" OffContent="Off" IsEnabled="False" Toggled="Toggled" AutomationProperties.AutomationId="PersonalizedToggle">
     <ToolTipService.ToolTip>On applies the selected profile. Off restores the saved device profile. Changing the file while On applies the new selection.</ToolTipService.ToolTip>
    </ToggleSwitch>
-   <Button x:Name="Reset" Content="Reset configurationâ€¦" Click="ResetClicked" AutomationProperties.AutomationId="Reset"/>
+   <Button x:Name="Reset" Content="Reset configuration…" Click="ResetClicked" AutomationProperties.AutomationId="Reset"/>
 <ProgressBar x:Name="Progress" IsIndeterminate="True" Visibility="Collapsed"/>
    <InfoBar x:Name="Message" IsOpen="False" IsClosable="True" AutomationProperties.AutomationId="OperationStatus"><InfoBar.ActionButton><Button x:Name="Allow" Content="Allow anyway" Visibility="Collapsed" Click="AllowClicked"/></InfoBar.ActionButton></InfoBar>
   </StackPanel>

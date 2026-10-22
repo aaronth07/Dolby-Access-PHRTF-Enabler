@@ -3,7 +3,7 @@
 <head>
  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
  <meta name="description" content="Personalized headphone profiles for Dolby Atmos and DTS Headphone:X, with native room controls on Windows.">
- <title>Dolby Access PHRTF Enabler â€” 2.2.0</title>
+ <title>Dolby Access PHRTF Enabler — 2.2.0</title>
  <link rel="stylesheet" href="site.css">
 </head>
 <body>
@@ -27,21 +27,21 @@
   </section>
   <section id="measurements">
    <h2>Measured renderer output</h2>
-   <p class="measure-intro">Matched Windows spatial-object captures at 30Â° left, 0Â° elevation, 1 m. The plots use mean left/right power, 1/6-octave frequency smoothing, and 2 ms impulse-response energy blocks. Matching axes; no gain normalization.</p>
+   <p class="measure-intro">Matched Windows spatial-object captures at 30° left, 0° elevation, 1 m. The plots use mean left/right power, 1/6-octave frequency smoothing, and 2 ms impulse-response energy blocks. Matching axes; no gain normalization.</p>
    <figure><a href="images/dolby-personalization.png"><img src="images/dolby-personalization.png" width="2160" height="1440" alt="Dolby personalization Off and On: matched frequency response and impulse-response energy plots." loading="lazy"></a><figcaption><strong>Dolby personalization Off / On.</strong> A recorded comparison using one supplied profile. It demonstrates a change in renderer output; it does not establish personal fit or listening quality.</figcaption></figure>
    <figure><a href="images/dts-personalization.png"><img src="images/dts-personalization.png" width="2160" height="1440" alt="DTS personalization Off and On: matched frequency response and impulse-response energy plots." loading="lazy"></a><figcaption><strong>DTS personalization Off / On.</strong> This earlier comparison used the personalized carrier with room sends muted. Version 2.0 now restores room sends by default and offers explicit room selection.</figcaption></figure>
-   <figure><a href="images/dts-room-presets.png"><img src="images/dts-room-presets.png" width="2160" height="1440" alt="Balanced and Spacious room presets with identical personalized FIRs. Spacious increases the later recorded response." loading="lazy"></a><figcaption><strong>DTS Balanced / Spacious, personalized FIRs held constant.</strong> Only the native room sends differ. The research comparison found approximately 9.8 dB more energy from 20â€“250 ms with Spacious across the tested directions. The source report records exact runtime/counter restoration.</figcaption></figure>
+   <figure><a href="images/dts-room-presets.png"><img src="images/dts-room-presets.png" width="2160" height="1440" alt="Balanced and Spacious room presets with identical personalized FIRs. Spacious increases the later recorded response." loading="lazy"></a><figcaption><strong>DTS Balanced / Spacious, personalized FIRs held constant.</strong> Only the native room sends differ. The research comparison found approximately 9.8 dB more energy from 20–250 ms with Spacious across the tested directions. The source report records exact runtime/counter restoration.</figcaption></figure>
    <figure><a href="images/native-atmos-eq-room.png"><img src="images/native-atmos-eq-room.png" width="2520" height="900" alt="Native Atmos EQ and corrected 200 and 400 percent room modes, measured frequency response and decay." loading="lazy"></a><figcaption>Atmos native EQ and optional room gain correction. Direct energy remains within 0.06 dB; late room energy rises about 6 or 12 dB.</figcaption></figure>
    <figure><a href="images/native-dts-overdrive.png"><img src="images/native-dts-overdrive.png" width="2520" height="900" alt="DTS Spacious, Spacious 200 percent, and Spacious 400 percent native response and decay." loading="lazy"></a><figcaption>DTS native Spacious overdrive with the same FIRs and EQ. Direct energy stays within 0.001 dB; late room energy rises about 6 or 12 dB.</figcaption></figure>
-   <p><a href="graph-provenance.json">Graph processing and provenance</a> Â· Select any graph for its full-resolution image.</p>
+   <p><a href="graph-provenance.json">Graph processing and provenance</a> · Select any graph for its full-resolution image.</p>
   </section>
   <section id="technical" class="reading">
    <h2>What the controls change</h2>
-   <table><thead><tr><th scope="col">Control</th><th scope="col">Native configuration</th></tr></thead><tbody><tr><th scope="row">Dolby room output level</th><td>Scales room output taps, with signed coefficient overflow checks. Up to 150% where the profile allows it.</td></tr><tr><th scope="row">Dolby feedback</th><td>Scales recursive feedback independently of room output level, from 0â€“100%.</td></tr><tr><th scope="row">DTS room preset</th><td>Copies only the first stereo auxiliary vectors from a compatible installed preset. Personalized FIRs, second auxiliary vectors, room parameters, and panner remain intact.</td></tr><tr><th scope="row">DTS SOFA apply</th><td>Writes the combined runtime profile, disabled headphone EQ, and transaction counter, then verifies readback.</td></tr></tbody></table>
+   <table><thead><tr><th scope="col">Control</th><th scope="col">Native configuration</th></tr></thead><tbody><tr><th scope="row">Dolby room output level</th><td>Scales room output taps, with signed coefficient overflow checks. Up to 150% where the profile allows it.</td></tr><tr><th scope="row">Dolby feedback</th><td>Scales recursive feedback independently of room output level, from 0–100%.</td></tr><tr><th scope="row">DTS room preset</th><td>Copies only the first stereo auxiliary vectors from a compatible installed preset. Personalized FIRs, second auxiliary vectors, room parameters, and panner remain intact.</td></tr><tr><th scope="row">DTS SOFA apply</th><td>Writes the combined runtime profile, disabled headphone EQ, and transaction counter, then verifies readback.</td></tr></tbody></table>
    <p>This release includes Time-aligned SOFA interpolation, native DTS Spacious 200%/400%, and optional +6/+12 dB Dolby room gain correction. Experimental confirmations include clipping guidance. The current process cannot register a Sonic renderer in the system audio host; Sonic research remains separate from this release. <a href="native-renderer-eq-status.md">Implementation and validation limits</a>.</p>
    <p>Balanced/Spacious extraction is mapped to DTS Sound Unbound 2026.3.31.0 and checks the installed binary and asset hashes. A version mismatch offers an override that retains the original room sends. Vendor preset binaries and decoding keys are not bundled.</p>
    <details><summary>Compatibility and current limits</summary><p>Dolby coefficient version 1.1.0 and one 23-node DTS grid have been tested. SOFA conversion supports binaural SimpleFreeFieldHRIR and GeneralFIR, a full-sphere grid, one source distance, and integer sample delays. Other configurations may require an override or be unsupported. Native readback tests cover one Windows system.</p><p>Dolby 200% and 400% room/direct modes halve or quarter directional fields, retaining saved room taps and feedback. Optional gain correction adds +6 or +12 dB through Atmos native EQ and combines with uploaded EQ. On or Restore returns full directional gain. Custom 150% scales room taps alone.</p></details>
-   <p><a href="technical-report.md">Technical report</a> Â· <a href="user-guide.md">User guide</a> Â· <a href="release-notes.md">Release notes</a></p>
+   <p><a href="technical-report.md">Technical report</a> · <a href="user-guide.md">User guide</a> · <a href="release-notes.md">Release notes</a></p>
   </section>
   <section id="candidate" class="reading">
    <h2>Download</h2>
@@ -50,6 +50,6 @@
    <p><a href="release-notes.md">Review the changes and validation</a></p>
   </section>
  </main>
- <footer><p>Dolby Access PHRTF Enabler Â· Independent Windows utility. Dolby and DTS names identify the supported third-party products; no affiliation is implied.</p><p>No analytics, account connection, or remote scripts.</p></footer>
+ <footer><p>Dolby Access PHRTF Enabler · Independent Windows utility. Dolby and DTS names identify the supported third-party products; no affiliation is implied.</p><p>No analytics, account connection, or remote scripts.</p></footer>
 </body>
 </html>

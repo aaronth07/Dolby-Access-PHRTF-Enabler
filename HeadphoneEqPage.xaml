@@ -4,7 +4,7 @@
   <ComboBox x:Name="Profiles" Header="Saved EQ profile" HorizontalAlignment="Stretch" SelectionChanged="ProfileChanged" AutomationProperties.AutomationId="EqProfiles"/>
   <Grid ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
    <TextBox x:Name="ImportPath" PlaceholderText="Equalizer APO parametric EQ text file" AutomationProperties.AutomationId="EqImportPath"/>
-   <Button x:Name="Browse" Grid.Column="1" Content="Browseâ€¦" Click="BrowseClicked" AutomationProperties.AutomationId="EqBrowse"/>
+   <Button x:Name="Browse" Grid.Column="1" Content="Browse…" Click="BrowseClicked" AutomationProperties.AutomationId="EqBrowse"/>
   </Grid>
   <StackPanel Orientation="Horizontal" Spacing="8"><Button x:Name="Import" Content="Import profile" Click="ImportClicked" AutomationProperties.AutomationId="EqImport"/><Button x:Name="Delete" Content="Delete profile" Click="DeleteClicked" AutomationProperties.AutomationId="EqDelete"/></StackPanel>
   <Canvas x:Name="Graph" Height="180" SizeChanged="GraphSizeChanged" AutomationProperties.AutomationId="EqResponseGraph"/>
